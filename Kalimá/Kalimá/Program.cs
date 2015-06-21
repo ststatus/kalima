@@ -434,7 +434,6 @@ namespace Kalimá {
             return 1;
         }
         
-        /* elkalista autow */
         static readonly List<mysentinels> _mysentinels = new List<mysentinels>();
         internal class mysentinels {
             public string Name;
