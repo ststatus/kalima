@@ -58,7 +58,7 @@ namespace Kalimá {
             haraM.AddItem(new MenuItem("harassmanaminQ", "Q requires % mana", true).SetValue(new Slider(60, 0, 100)));
             haraM.AddItem(new MenuItem("harassuseE", "Use E", true).SetValue(true));
             haraM.AddItem(new MenuItem("harassEoutOfRange", "Use E when out of range", true).SetValue(true));
-            haraM.AddItem(new MenuItem("harassE", "when being able to kill X minions and E champion", true).SetValue(new Slider(2, 1, 10)));
+            haraM.AddItem(new MenuItem("harassE", "when being able to kill X minions and E champion", true).SetValue(new Slider(1, 1, 10)));
             haraM.AddItem(new MenuItem("harassmanaminE", "E requires % mana", true).SetValue(new Slider(30, 0, 100)));
             haraM.AddItem(new MenuItem("harassActive", "Active", true).SetValue(true));
 
