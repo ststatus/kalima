@@ -55,14 +55,14 @@ namespace Kalimá {
 
             haraM.AddItem(new MenuItem("harassQ", "Use Q", true).SetValue(true));
             haraM.AddItem(new MenuItem("harassQchance", "Q cast if Chance of hit is:", true).SetValue(new Slider(4, 1, 4)));
-            haraM.AddItem(new MenuItem("harassmanaminQ", "Q requires % mana", true).SetValue(new Slider(45, 0, 100)));
+            haraM.AddItem(new MenuItem("harassmanaminQ", "Q requires % mana", true).SetValue(new Slider(60, 0, 100)));
             haraM.AddItem(new MenuItem("harassuseE", "Use E", true).SetValue(true));
             haraM.AddItem(new MenuItem("harassEoutOfRange", "Use E when out of range", true).SetValue(true));
-            haraM.AddItem(new MenuItem("harassE", "when being able to kill X minions and E champion", true).SetValue(new Slider(1, 1, 10)));
-            haraM.AddItem(new MenuItem("harassmanaminE", "E requires % mana", true).SetValue(new Slider(20, 0, 100)));
+            haraM.AddItem(new MenuItem("harassE", "when being able to kill X minions and E champion", true).SetValue(new Slider(2, 1, 10)));
+            haraM.AddItem(new MenuItem("harassmanaminE", "E requires % mana", true).SetValue(new Slider(30, 0, 100)));
             haraM.AddItem(new MenuItem("harassActive", "Active", true).SetValue(true));
 
-            JungM.AddItem(new MenuItem("jungleclearQ", "Use Q", true).SetValue(true));
+            JungM.AddItem(new MenuItem("jungleclearQ", "Use Q", true).SetValue(false));
             JungM.AddItem(new MenuItem("jungleclearE", "Use E", true).SetValue(true));
             JungM.AddItem(new MenuItem("jungleclearmana", "E requires % mana", true).SetValue(new Slider(20, 0, 100)));
             JungM.AddItem(new MenuItem("bardragsteal", "Steal dragon/baron", true).SetValue(true));
@@ -71,9 +71,9 @@ namespace Kalimá {
             LaneM.AddItem(new MenuItem("laneclearQ", "Use Q", true).SetValue(true));
             LaneM.AddItem(new MenuItem("laneclearQcast", "Q cast if minions >= X", true).SetValue(new Slider(2, 0, 10)));
             LaneM.AddItem(new MenuItem("laneclearQcastchance", "Q cast if Chance of hit is:", true).SetValue(new Slider(4, 0, 4)));
-            LaneM.AddItem(new MenuItem("laneclearmanaminQ", "Q requires % mana", true).SetValue(new Slider(50, 0, 100)));
+            LaneM.AddItem(new MenuItem("laneclearmanaminQ", "Q requires % mana", true).SetValue(new Slider(65, 0, 100)));
             LaneM.AddItem(new MenuItem("laneclearE", "Use E", true).SetValue(true));
-            LaneM.AddItem(new MenuItem("laneclearEcast", "E cast if minions >= X", true).SetValue(new Slider(2, 0, 10)));
+            LaneM.AddItem(new MenuItem("laneclearEcast", "E cast if minions >= X", true).SetValue(new Slider(3, 0, 10)));
             LaneM.AddItem(new MenuItem("laneclearmanaminE", "E requires % mana", true).SetValue(new Slider(30, 0, 100)));
             LaneM.AddItem(new MenuItem("laneclearlasthit", "E when non-killable by AA", true).SetValue(true));
 
@@ -98,7 +98,7 @@ namespace Kalimá {
         }
 
         static void Game_OnUpdate(EventArgs args) {
-            if (Player.IsDead) { return; }
+            if (Player.IsDead || Player.IsRecalling()) { return; }
 
 
             if (kalm.Item("killsteal", true).GetValue<Boolean>()) {
@@ -112,7 +112,7 @@ namespace Kalimá {
             if (kalm.Item("jungleActive", true).GetValue<Boolean>()) {
                 Jungleclear();
             }
-            if (kalm.Item("autoW", true).GetValue<Boolean>() && !Player.IsRecalling()) {
+            if (kalm.Item("autoW", true).GetValue<Boolean>()) {
                 AutoW();
             }
             if (kalm.Item("fleeKey").GetValue<KeyBind>().Active) {
@@ -129,8 +129,14 @@ namespace Kalimá {
                     break;
             }
         }
-
+        static float? harasstimers;
         static void harass() {
+            //use for E only since its the only one that does "double" shots
+            if (harasstimers != null) {
+                if ((Game.ClockTime - harasstimers) > 0.200) {
+                    harasstimers = null;
+                } else { return; }
+            }
             var lqmana = kalm.Item("harassmanaminQ", true).GetValue<Slider>().Value;
             var lemana = kalm.Item("harassmanaminE", true).GetValue<Slider>().Value;
             var minmana = lqmana;
@@ -157,8 +163,9 @@ namespace Kalimá {
             }
 
             if (!kalm.Item("harassuseE", true).GetValue<Boolean>()) { return; }
+            if (mymana < lemana || !E.IsReady()) { return; }
 
-            if (kalm.Item("harassE", true).GetValue<Slider>().Value >= 1 && mymana > lemana && E.IsReady(1)) {
+            if (kalm.Item("harassE", true).GetValue<Slider>().Value >= 1 && kalm.Item("harassEoutOfRange", true).GetValue<Boolean>()) {
                 var minionkillcount = 0;
                 //use R.range instead of E.range so it can harass ".outofrange" as long as E is castable
                 var Minions = MinionManager.GetMinions(Player.ServerPosition, R.Range, MinionTypes.All, MinionTeam.NotAlly);
@@ -166,24 +173,12 @@ namespace Kalimá {
                     foreach (var Minion in Minions.Where(x => E.CanCast(x) && x.Health <= GetEDamage(x))) { minionkillcount++; }
 
                     if (minionkillcount > 0) {
-                        foreach (var enemy in ObjectManager.Get<Obj_AI_Hero>().Where(h => E.CanCast(h) && GetEDamage(h) > 10)) {
+                        foreach (var enemy in ObjectManager.Get<Obj_AI_Hero>().Where(h => E.CanCast(h))) {
                             if (minionkillcount >= kalm.Item("harassE", true).GetValue<Slider>().Value) {
-                                E.Cast(); return;
-                            }
-                        }
-                    }
-                }
-            }
-            if (kalm.Item("harassEoutOfRange", true).GetValue<Boolean>() && mymana > lemana && E.IsReady(1)) {
-                var enemies = ObjectManager.Get<Obj_AI_Hero>().Where(h => E.CanCast(h));
-                if (enemies != null) {
-                    foreach (var enemy in enemies) {
-                        var buff = enemy.Buffs.Find(b => b.Caster.IsMe && b.IsValidBuff() && b.DisplayName == "KalistaExpungeMarker");
-                        if (buff != null) {
-                            var distancefromme = Player.Distance(enemy.Position);
-                            if (distancefromme > E.Range) {
                                 E.Cast();
-                            }                        
+                                harasstimers = Game.ClockTime;
+                                return;
+                            }
                         }
                     }
                 }
@@ -227,15 +222,14 @@ namespace Kalimá {
             }
         }
 
-        static int? lanecleartimer;
+        static float? lanecleartimer;
         static void laneclear() {
-            //only execute every 200 ticks...(this should give about 5 times a sec which is more than enough)
+            //only execute every 200 milliseconds...(this should give about 5 times a sec which is more than enough)
             if (lanecleartimer != null) {
-                if ((Environment.TickCount - lanecleartimer) > 200) {
+                if ((Game.ClockTime - lanecleartimer) > 0.200) {
                     lanecleartimer = null;
                 } else { return; }
             }
-            lanecleartimer = Environment.TickCount;
 
             var lqmana = kalm.Item("laneclearmanaminQ", true).GetValue<Slider>().Value;
             var lemana = kalm.Item("laneclearmanaminE", true).GetValue<Slider>().Value;
@@ -270,15 +264,18 @@ namespace Kalimá {
 
                 foreach (var Minion in Minions.Where(x => E.CanCast(x) && x.Health <= GetEDamage(x))) { minionkillcount++; }
 
-                if (minionkillcount >= kalm.Item("laneclearEcast", true).GetValue<Slider>().Value)
+                if (minionkillcount >= kalm.Item("laneclearEcast", true).GetValue<Slider>().Value) {
                     E.Cast();
+                    lanecleartimer = Game.ClockTime;
+                }
             }
-
         }
 
         static void Event_OnProcessSpellCast(Obj_AI_Base sender, GameObjectProcessSpellCastEventArgs args) {
-            if (sender.IsMe && args.SData.Name == "KalistaExpungeWrapper") {
-                Orbwalking.ResetAutoAttackTimer();
+            if (sender.IsMe) {
+                if (args.SData.Name == "KalistaExpungeWrapper") {
+//                    Orbwalking.ResetAutoAttackTimer();
+                }
             }
             if (kalm.Item("savesoulbound", true).GetValue<Boolean>() && R.IsReady() && soulmate != null) {
                 if (sender.Type == GameObjectType.obj_AI_Hero && sender.IsEnemy) {
@@ -353,87 +350,51 @@ namespace Kalimá {
         }
 
         static float GetEDamage(Obj_AI_Base target) {
-            var buff = target.Buffs.Find(b => b.Caster.IsMe && b.IsValidBuff() && b.DisplayName == "KalistaExpungeMarker");
-            if (buff == null || !E.IsReady()) { return 1; }
-            var buffscount = buff.Count;
-            if (E.CanCast(target)) {
-                double armorPenPercent = Player.PercentArmorPenetrationMod;
-                double armorPenFlat = Player.FlatArmorPenetrationMod;
-                double k;
-                var armor = target.Armor;
-                if (armor < 0) { k = 2 - 100 / (100 - armor); } else if ((target.Armor * armorPenPercent) - armorPenFlat < 0) k = 1;
-                else { k = 100 / (100 + (target.Armor * armorPenPercent) - armorPenFlat); }
+            var stacks = target.GetBuffCount("kalistaexpungemarker");
+            if (stacks == null || !E.IsReady()) { return 1; }
 
-                if (target is Obj_AI_Hero) {
-                    double damage = Player.GetAutoAttackDamage(target) * 0.3;
-                    if (Player.Masteries.Any())
-                    if (Player.Masteries.Any(m => m.Page == MasteryPage.Offense && m.Id == 65 && m.Points == 1)) k = k * 1.015;
-                    if (Player.Masteries.Any(m => m.Page == MasteryPage.Offense && m.Id == 146 && m.Points == 1)) k = k * 1.03;
+            var baseDamage = new[] { 20, 30, 40, 50, 60 };
+            var bd = baseDamage[E.Level - 1];
+            var additionalBaseDamage = new[] { 0.6f, 0.6f, 0.6f, 0.6f, 0.6f };
+            var abd = additionalBaseDamage[E.Level - 1];
+
+            var spearDamage = new[] { 10, 14, 19, 25, 32 };
+            var sd = spearDamage[E.Level - 1];
+            var additionalSpearDamage = new[] { 0.20f, 0.225f, 0.25f, 0.275f, 0.30f };
+            var asd = additionalSpearDamage[E.Level - 1];
+
+            double totalDamage = bd + abd * Player.TotalAttackDamage + (stacks - 1) * (sd + asd * Player.TotalAttackDamage);
+
+            totalDamage = 100 / (100 + (target.Armor * Player.PercentArmorPenetrationMod) -
+                Player.FlatArmorPenetrationMod) * totalDamage;
+
+            if (target is Obj_AI_Hero) {
+                if (Player.Masteries.Any()) {
+                    //double edged sword
+                    if (Player.Masteries.Any(m => m.Page == MasteryPage.Offense && m.Id == 65 && m.Points == 1)) {
+                        totalDamage = totalDamage * 1.015;
+                    }
+                    //havoc
+                    if (Player.Masteries.Any(m => m.Page == MasteryPage.Offense && m.Id == 146 && m.Points == 1)) {
+                        totalDamage = totalDamage * 1.03;
+                    }
+                    //spell weaving
+                    if (Player.Masteries.Any(m => m.Page == MasteryPage.Offense && m.Id == 97 && m.Points == 1)) {
+                        if (stacks < 3) {
+                            totalDamage = totalDamage * (stacks * 1.01);
+                        } else { totalDamage = totalDamage * 1.03; }
+                    }
+                    //executioner
                     var mastery = Player.Masteries.FirstOrDefault(m => m.Page == MasteryPage.Offense && m.Id == 100);
                     if (mastery != null && mastery.Points >= 1 &&
                         target.Health / target.MaxHealth <= 0.05d + 0.15d * mastery.Points) {
-                        k = k * 1.05;
+                        totalDamage = totalDamage * 1.05;
                     }
-                    double edamage = 0;
-                    edamage = new double[] { 20, 30, 40, 50, 60 }[E.Level - 1] + Player.TotalAttackDamage * 0.60 + (new double[] { 10, 14, 19, 25, 32 }[E.Level - 1] + new double[] { 0.2f, 0.225f, 0.25f, 0.275f, 0.3f }[E.Level - 1] * Player.TotalAttackDamage) * (buff.Count - 1);
-                    if (target.InventoryItems.Any(m => m.DisplayName == "Doran's Shield")) return (float)(k * edamage);
-                    return (float)(k * (edamage + damage));
-                }
-                if (target is Obj_AI_Minion) {
-                    double damage1 = 0;
-                    damage1 += new double[] { 20, 30, 40, 50, 60 }[E.Level - 1] + Player.TotalAttackDamage * 0.60 + (new double[] { 10, 14, 19, 25, 32 }[E.Level - 1] + new double[] { 0.2f, 0.225f, 0.25f, 0.275f, 0.3f }[E.Level - 1] * Player.TotalAttackDamage) * (buff.Count - 1);
-                    return (float)(damage1 * k);
                 }
             }
-            return 1;
+            return (float)totalDamage;
         }
 
-        static float tEDamage(Obj_AI_Base target) {
-            var buff = target.Buffs.Find(b => b.Caster.IsMe && b.IsValidBuff() && b.DisplayName == "KalistaExpungeMarker");
-            if (buff == null || !E.IsReady()) { return 1; }
-            if (E.CanCast(target)) {
-                //set physical damage and player AD as 60%
-                var baseDamage = new[] { 20, 30, 40, 50, 60 };
-                var playerdmg = ObjectManager.Player.TotalAttackDamage() * 0.6;
-                var physicaldamage = baseDamage[E.Level] + playerdmg;
-
-                //set spears damage
-                var spearDamage = new[] { 10, 14, 19, 25, 32 };
-                var additionalSpearDamage = new[] { 0.20f, 0.225f, 0.25f, 0.275f, 0.30f };
-                var speardmg = ObjectManager.Player.TotalAttackDamage() * additionalSpearDamage[E.Level];
-                var spears = target.GetBuffCount("KalistaExpungeMarker");
-                var spearsdamage = (spearDamage[E.Level] + speardmg) * spears;
-
-                //set totaldamage physical + spears
-                var totaldamage = physicaldamage + spearsdamage;
-
-                if (target is Obj_AI_Hero) {
-                    if (Player.Masteries.Any(m => m.Page == MasteryPage.Offense && m.Id == 65 && m.Points == 1)) {
-                        totaldamage = totaldamage * 1.015;
-                    }
-                    if (Player.Masteries.Any(m => m.Page == MasteryPage.Offense && m.Id == 146 && m.Points == 1)) {
-                        totaldamage = totaldamage * 1.03;
-                    }
-                    if (Player.Masteries.Any(m => m.Page == MasteryPage.Offense && m.Id == 65 && m.Points == 1)) {
-                        totaldamage = totaldamage * 1.015;
-                    }
-                    if (Player.Masteries.Any(m => m.Page == MasteryPage.Offense && m.Id == 146 && m.Points == 1)) {
-                        totaldamage = totaldamage * 1.03;
-                    }
-                    var mastery = Player.Masteries.FirstOrDefault(m => m.Page == MasteryPage.Offense && m.Id == 100);
-                    if (mastery != null && mastery.Points >= 1 &&
-                        target.Health / target.MaxHealth <= 0.05d + 0.15d * mastery.Points) {
-                        totaldamage = totaldamage * 1.05;
-                    }
-                    return (float)totaldamage;
-                }
-                if (target is Obj_AI_Minion) {
-                    return (float)totaldamage;
-                }
-            }
-            return 1;
-        }
-        
         static readonly List<mysentinels> _mysentinels = new List<mysentinels>();
         internal class mysentinels {
             public string Name;
@@ -465,12 +426,12 @@ namespace Kalimá {
             //add river mid bush here...
             //_mysentinels.Add(new mysentinels("RiverTop", (Vector3)SummonersRift.Bushes.);
         }
-        static int? autoWtimers;
+        static float? autoWtimers;
         static void AutoW() {
             var useW = kalm.Item("autoW", true).GetValue<Boolean>();
             if (useW && W.IsReady()) {
                 if (autoWtimers != null) {
-                    if ((Environment.TickCount - autoWtimers) > 2000) {
+                    if ((Game.ClockTime - autoWtimers) > 2) {
                         autoWtimers = null;
                     } else { return; }
                 }
@@ -482,7 +443,7 @@ namespace Kalimá {
                 foreach (var destinations in sentineldestinations) {
                     var distancefromme = Vector3.Distance(Player.Position, destinations.Position);
                     if (sentinelcloserthan(destinations.Position, 1500) == 0 && distancefromme < W.Range) {
-                        autoWtimers = Environment.TickCount;
+                        autoWtimers = Game.ClockTime;
                         W.Cast(destinations.Position);
                         Notifications.AddNotification(new Notification("sending bug to:" + destinations.Name, 5000).SetTextColor(Color.FromArgb(255, 0, 0)));
                         return;                    
