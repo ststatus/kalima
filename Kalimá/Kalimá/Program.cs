@@ -365,24 +365,28 @@ namespace Kalimá {
             double playertotalad = Player.TotalAttackDamage;
 
             //Martial Mastery
-            if (Player.Masteries.Any(m => m.Page == MasteryPage.Offense && m.Id == 98 && m.Points == 1)) {
-                playertotalad = playertotalad + 4;
-            }
-            //brute force
-            var brute = Player.Masteries.FirstOrDefault(m => m.Page == MasteryPage.Offense && m.Id == 82);
-            if (brute != null && brute.Points >= 1) {
-                switch (brute.Points) {
-                    case 1:
-                        playertotalad = playertotalad + (Player.Level * 0.22);
-                        break;
-                    case 2:
-                        playertotalad = playertotalad + (Player.Level * 0.39);
-                        break;
-                    case 3:
-                        playertotalad = playertotalad + (Player.Level * 0.55);
-                        break;
+            if (target is Obj_AI_Hero) {
+                if (Player.Masteries.Any()) {
+                    if (Player.Masteries.Any(m => m.Page == MasteryPage.Offense && m.Id == 98 && m.Points == 1)) {
+                        playertotalad = playertotalad + 4;
+                    }
+                    //brute force
+                    var brute = Player.Masteries.FirstOrDefault(m => m.Page == MasteryPage.Offense && m.Id == 82);
+                    if (brute != null && brute.Points >= 1) {
+                        switch (brute.Points) {
+                            case 1:
+                                playertotalad = playertotalad + (Player.Level * 0.22);
+                                break;
+                            case 2:
+                                playertotalad = playertotalad + (Player.Level * 0.39);
+                                break;
+                            case 3:
+                                playertotalad = playertotalad + (Player.Level * 0.55);
+                                break;
+                        }
+                    }
                 }
-            }            
+            }
 
             double totalDamage = bd + abd * Player.TotalAttackDamage + (stacks - 1) * (sd + asd * playertotalad);
 
