@@ -97,9 +97,15 @@ namespace Kalimá {
             kalimenu.AddToMainMenu();
         }
 
+        static float? onupdatetimers;//limit onupdate to 5 times per second
         static void Game_OnUpdate(EventArgs args) {
             if (Player.IsDead || Player.IsRecalling()) { return; }
 
+            if (onupdatetimers != null) {
+                if ((Game.ClockTime - onupdatetimers) > 0.200) {
+                    onupdatetimers = null;
+                } else { return; }
+            }
 
             if (kalm.Item("killsteal", true).GetValue<Boolean>()) {
                 Killsteal();
@@ -128,15 +134,9 @@ namespace Kalimá {
                 case Orbwalking.OrbwalkingMode.Mixed:
                     break;
             }
+            onupdatetimers = Game.ClockTime;
         }
-        static float? harasstimers;
         static void harass() {
-            //use for E only since its the only one that does "double" shots
-            if (harasstimers != null) {
-                if ((Game.ClockTime - harasstimers) > 0.200) {
-                    harasstimers = null;
-                } else { return; }
-            }
             var lqmana = kalm.Item("harassmanaminQ", true).GetValue<Slider>().Value;
             var lemana = kalm.Item("harassmanaminE", true).GetValue<Slider>().Value;
             var minmana = lqmana;
@@ -155,7 +155,7 @@ namespace Kalimá {
                         foreach (var minion in collide) {
                             if (minion.Health > Q.GetDamage(minion)) { minionkillcount++; }
                         }
-                        if (minionkillcount == 0 && Q.GetPrediction(enemy).Hitchance >= gethitchanceQ) {
+                        if (minionkillcount > 0 && Q.GetPrediction(enemy).Hitchance >= gethitchanceQ) {
                             Q.Cast(enemy);
                         }
                     }
@@ -176,7 +176,6 @@ namespace Kalimá {
                         foreach (var enemy in ObjectManager.Get<Obj_AI_Hero>().Where(h => E.CanCast(h))) {
                             if (minionkillcount >= kalm.Item("harassE", true).GetValue<Slider>().Value) {
                                 E.Cast();
-                                harasstimers = Game.ClockTime;
                                 return;
                             }
                         }
@@ -222,15 +221,7 @@ namespace Kalimá {
             }
         }
 
-        static float? lanecleartimer;
         static void laneclear() {
-            //only execute every 200 milliseconds...(this should give about 5 times a sec which is more than enough)
-            if (lanecleartimer != null) {
-                if ((Game.ClockTime - lanecleartimer) > 0.200) {
-                    lanecleartimer = null;
-                } else { return; }
-            }
-
             var lqmana = kalm.Item("laneclearmanaminQ", true).GetValue<Slider>().Value;
             var lemana = kalm.Item("laneclearmanaminE", true).GetValue<Slider>().Value;
             var minmana = lqmana;
@@ -266,7 +257,6 @@ namespace Kalimá {
 
                 if (minionkillcount >= kalm.Item("laneclearEcast", true).GetValue<Slider>().Value) {
                     E.Cast();
-                    lanecleartimer = Game.ClockTime;
                 }
             }
         }
@@ -296,8 +286,15 @@ namespace Kalimá {
                 }
             }
         }
+
+        static float? ondrawtimers;
         static void Drawing_OnDraw(EventArgs args) {
             if (Player.IsDead) { return; }
+            if (ondrawtimers != null) {
+                if ((Game.ClockTime - ondrawtimers) > 0.033) {//allow to run at 30/fps
+                    ondrawtimers = null;
+                } else { return; }
+            }
             var curposition = Player.Position;
             var dAA = kalm.Item("drawAA").GetValue<Circle>();
             var dQ = kalm.Item("drawQ").GetValue<Circle>();
@@ -318,6 +315,7 @@ namespace Kalimá {
             if (kalm.Item("drawcoords", true).GetValue<Boolean>()) {
                 Drawing.DrawText(Drawing.Width * 0.45f, Drawing.Height * 0.70f, Color.GreenYellow, "Coords:" + Player.Position);
             }
+            ondrawtimers = Game.ClockTime;
         }
 
         static List<Obj_AI_Base> Q_GetCollisionMinions(Obj_AI_Hero source, Vector3 targetposition) {
@@ -364,9 +362,9 @@ namespace Kalimá {
             var asd = additionalSpearDamage[E.Level - 1];
             double playertotalad = Player.TotalAttackDamage;
 
-            //Martial Mastery
             if (target is Obj_AI_Hero) {
                 if (Player.Masteries.Any()) {
+                    //Martial Mastery
                     if (Player.Masteries.Any(m => m.Page == MasteryPage.Offense && m.Id == 98 && m.Points == 1)) {
                         playertotalad = playertotalad + 4;
                     }
@@ -460,6 +458,12 @@ namespace Kalimá {
                         autoWtimers = null;
                     } else { return; }
                 }
+                Vector3 basepos = new Vector3(440f, 428f, 183.5748f);
+                var distancefrombase = Player.Distance(basepos);
+                if (distancefrombase > 3500) { return; }
+                var closestenemy = ObjectManager.Get<Obj_AI_Hero>().Where(h => h.IsValidTarget(W.Range)).FirstOrDefault().ServerPosition;
+                if (closestenemy != null && Player.Distance(closestenemy) < 3000f) {return;}
+
                 if ((Player.ManaPercent < 50) || Player.IsAttackingPlayer || Player.IsDashing() || Player.IsWindingUp) { return; }
                 fillsentinels();
 //                var sentinels = _mysentinels.Where(s => s.Name.Contains("RobotBuddy"));
