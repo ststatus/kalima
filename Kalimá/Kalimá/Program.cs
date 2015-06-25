@@ -206,9 +206,9 @@ namespace Kalimá {
 
             //baron / dragon
             if (kalm.Item("bardragsteal", true).GetValue<Boolean>()) {
-                var junglehugeE = MinionManager.GetMinions(E.Range, MinionTypes.All, MinionTeam.Enemy, MinionOrderTypes.MaxHealth).FirstOrDefault(x => x.Health + (x.HPRegenRate / 2) <= GetEDamage(x) && (x.BaseSkinName.ToLower().Contains("dragon") || x.BaseSkinName.ToLower().Contains("baron")));
+                var junglehugeE = MinionManager.GetMinions(E.Range, MinionTypes.All, MinionTeam.Enemy, MinionOrderTypes.MaxHealth).FirstOrDefault(x => x.Health + (x.HPRegenRate / 2) <= GetEDamage(x) && (x.CharData.BaseSkinName.ToLower().Contains("dragon") || x.CharData.BaseSkinName.ToLower().Contains("baron")));
                 if (E.CanCast(junglehugeE)) { E.Cast(); }
-                var junglehugeQ = MinionManager.GetMinions(Q.Range, MinionTypes.All, MinionTeam.Enemy, MinionOrderTypes.MaxHealth).FirstOrDefault(x => x.Health + (x.HPRegenRate / 2) <= Q.GetDamage(x) && (x.BaseSkinName.ToLower().Contains("dragon") || x.BaseSkinName.ToLower().Contains("baron")));
+                var junglehugeQ = MinionManager.GetMinions(Q.Range, MinionTypes.All, MinionTeam.Enemy, MinionOrderTypes.MaxHealth).FirstOrDefault(x => x.Health + (x.HPRegenRate / 2) <= Q.GetDamage(x) && (x.CharData.BaseSkinName.ToLower().Contains("dragon") || x.CharData.BaseSkinName.ToLower().Contains("baron")));
                 if (Q.CanCast(junglehugeQ)) { Q.Cast(junglehugeQ); }
             }
             //other minions in jungle...
@@ -287,14 +287,9 @@ namespace Kalimá {
             }
         }
 
-        static float? ondrawtimers;
         static void Drawing_OnDraw(EventArgs args) {
             if (Player.IsDead) { return; }
-            if (ondrawtimers != null) {
-                if ((Game.ClockTime - ondrawtimers) > 0.033) {//allow to run at 30/fps
-                    ondrawtimers = null;
-                } else { return; }
-            }
+
             var curposition = Player.Position;
             var dAA = kalm.Item("drawAA").GetValue<Circle>();
             var dQ = kalm.Item("drawQ").GetValue<Circle>();
@@ -302,7 +297,6 @@ namespace Kalimá {
             var dE = kalm.Item("drawE").GetValue<Circle>();
             var dR = kalm.Item("drawR").GetValue<Circle>();
             var dj = kalm.Item("drawjumpspots").GetValue<Circle>();
-
             if (dAA.Active) { Render.Circle.DrawCircle(curposition, Orbwalking.GetRealAutoAttackRange(Player), dAA.Color); }
             if (Q.IsReady() && dQ.Active) { Render.Circle.DrawCircle(curposition, Q.Range, dQ.Color); }
             if (W.IsReady() && dW.Active) { Render.Circle.DrawCircle(curposition, W.Range, dW.Color); }
@@ -315,7 +309,6 @@ namespace Kalimá {
             if (kalm.Item("drawcoords", true).GetValue<Boolean>()) {
                 Drawing.DrawText(Drawing.Width * 0.45f, Drawing.Height * 0.70f, Color.GreenYellow, "Coords:" + Player.Position);
             }
-            ondrawtimers = Game.ClockTime;
         }
 
         static List<Obj_AI_Base> Q_GetCollisionMinions(Obj_AI_Hero source, Vector3 targetposition) {
