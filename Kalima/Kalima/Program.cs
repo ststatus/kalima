@@ -79,7 +79,7 @@ namespace Kalimá {
             LaneM.AddItem(new MenuItem("laneclearmanaminE", "E requires % mana", true).SetValue(new Slider(30, 0, 100)));
             LaneM.AddItem(new MenuItem("laneclearlasthit", "E when non-killable by AA", true).SetValue(true));
 
-            MiscM.AddItem(new MenuItem("AutoLevel", "Auto Level Skills", true).SetValue(true));
+//            MiscM.AddItem(new MenuItem("AutoLevel", "Auto Level Skills", true).SetValue(true));
             MiscM.AddItem(new MenuItem("autoW", "Auto W", true).SetValue(true));
             MiscM.AddItem(new MenuItem("killsteal", "Kill Steal", true).SetValue(true));
             MiscM.AddItem(new MenuItem("savesoulbound", "Save Soulbound (With R)", true).SetValue(true));
@@ -326,8 +326,8 @@ namespace Kalimá {
         }
 
         static void Event_OnLevelUp(Obj_AI_Base sender, CustomEvents.Unit.OnLevelUpEventArgs args) {
-            if (sender.NetworkId == Player.NetworkId && kalm.Item("AutoLevel", true).GetValue<Boolean>()) {
-                Player.Spellbook.LevelUpSpell(AutoLevel[args.NewLevel - 1].Slot);
+//            if (sender.NetworkId == Player.NetworkId && kalm.Item("AutoLevel", true).GetValue<Boolean>()) {
+//                Player.Spellbook.LevelUpSpell(AutoLevel[args.NewLevel - 1].Slot);
             }
         }
 
