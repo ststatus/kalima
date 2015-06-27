@@ -99,7 +99,7 @@ namespace Kalimá {
             kalimenu.AddToMainMenu();
         }
 
-        static float addblitzskarner = 0;
+        static float addblitzskarner = 0; 
         static float? onupdatetimers;//limit onupdate to 5 times per second
         static void Game_OnUpdate(EventArgs args) {
             if (Player.IsDead || Player.IsRecalling()) { return; }
