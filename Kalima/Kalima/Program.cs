@@ -328,7 +328,7 @@ namespace Kalimá {
         static void Event_OnLevelUp(Obj_AI_Base sender, CustomEvents.Unit.OnLevelUpEventArgs args) {
 //            if (sender.NetworkId == Player.NetworkId && kalm.Item("AutoLevel", true).GetValue<Boolean>()) {
 //                Player.Spellbook.LevelUpSpell(AutoLevel[args.NewLevel - 1].Slot);
-            }
+//            }
         }
 
         static void Drawing_OnDraw(EventArgs args) {
