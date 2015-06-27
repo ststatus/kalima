@@ -22,7 +22,7 @@ namespace Kalimá {
         static Spell Q, W, E, R;
         static Obj_AI_Hero soulmate;//store the soulbound friend..
         static float soulmateRange = 1250f;
-        //        const string List<SpellSlot> AUTO_LEVEL_SEQUENCE = new List<SpellSlot>() { SpellSlot.E, SpellSlot.Q, SpellSlot.W, SpellSlot.E, SpellSlot.Q, SpellSlot.R, SpellSlot.E, SpellSlot.E, SpellSlot.E, SpellSlot.Q, SpellSlot.R, SpellSlot.Q, SpellSlot.Q, SpellSlot.W, SpellSlot.W, SpellSlot.R, SpellSlot.W, SpellSlot.W }; //Assuming E>Q>R>W
+        static Spell[] AutoLevel;
 
         static void Game_OnGameLoad(EventArgs args) {
             if (Player.ChampionName != "Kalista") { return; }
@@ -37,8 +37,11 @@ namespace Kalimá {
             Drawing.OnDraw += Drawing_OnDraw;
             Obj_AI_Hero.OnProcessSpellCast += Event_OnProcessSpellCast;
             Orbwalking.OnNonKillableMinion += Event_OnNonKillableMinion;
+            Obj_AI_Hero.OnBuffAdd += Event_OnBuffAdd;
+            CustomEvents.Unit.OnLevelUp += Event_OnLevelUp;
             FillPositions();
         }
+
         static void Main(string[] args) { CustomEvents.Game.OnGameLoad += Game_OnGameLoad; }
 
         static void menuload() {
@@ -69,8 +72,7 @@ namespace Kalimá {
             JungM.AddItem(new MenuItem("jungleActive", "Active", true).SetValue(true));
 
             LaneM.AddItem(new MenuItem("laneclearQ", "Use Q", true).SetValue(true));
-            LaneM.AddItem(new MenuItem("laneclearQcast", "Q cast if minions >= X", true).SetValue(new Slider(2, 0, 10)));
-            LaneM.AddItem(new MenuItem("laneclearQcastchance", "Q cast if Chance of hit is:", true).SetValue(new Slider(4, 0, 4)));
+            LaneM.AddItem(new MenuItem("laneclearQcast", "Q cast if minions >= X", true).SetValue(new Slider(2, 2, 10)));
             LaneM.AddItem(new MenuItem("laneclearmanaminQ", "Q requires % mana", true).SetValue(new Slider(65, 0, 100)));
             LaneM.AddItem(new MenuItem("laneclearE", "Use E", true).SetValue(true));
             LaneM.AddItem(new MenuItem("laneclearEcast", "E cast if minions >= X", true).SetValue(new Slider(3, 0, 10)));
@@ -97,6 +99,7 @@ namespace Kalimá {
             kalimenu.AddToMainMenu();
         }
 
+        static float addblitzskarner = 0;
         static float? onupdatetimers;//limit onupdate to 5 times per second
         static void Game_OnUpdate(EventArgs args) {
             if (Player.IsDead || Player.IsRecalling()) { return; }
@@ -134,6 +137,33 @@ namespace Kalimá {
                 case Orbwalking.OrbwalkingMode.Mixed:
                     break;
             }
+            if (addblitzskarner == 0 && soulmate != null && W.IsReady()) {
+                //check if its blitz or skarner the ally...
+                if (soulmate.ChampionName == "Blitzcrank" || soulmate.ChampionName == "Skarner") {
+                    var menuname = "hereliesthename";
+                    if (soulmate.ChampionName == "Blitzcrank") {
+                        menuname = "Balista";
+                    } else { menuname = "Salista"; }
+
+                    Menu rpull = kalimenu.AddSubMenu(new Menu(menuname, menuname));
+
+                    Menu targetselect = rpull.AddSubMenu(new Menu("Target Selector", "Target Selector"));
+                    Menu champselect = rpull.AddSubMenu(new Menu("Drawings", "Drawings"));
+                    champselect.AddItem(new MenuItem("drawminrange", "Min Range", true).SetValue(false));
+                    champselect.AddItem(new MenuItem("drawmaxrange", "Max Range", true).SetValue(false));
+                    champselect.AddItem(new MenuItem("lineformat", "Line Range", true).SetValue(true));
+
+                    foreach (Obj_AI_Hero enem in ObjectManager.Get<Obj_AI_Hero>().Where(enem => enem.IsValid && enem.IsEnemy)) {
+                        targetselect.AddItem(new MenuItem("target" + enem.ChampionName, enem.ChampionName).SetValue(true));
+                    }
+                    rpull.AddItem(new MenuItem("balistaminrange", "Min Range", true).SetValue(new Slider(700, 500, 1400)));
+                    rpull.AddItem(new MenuItem("balistamaxrange", "Max Range", true).SetValue(new Slider(1350, 500, 1400)));
+                    rpull.AddItem(new MenuItem("balistenemyamaxrange", "Enemy Max Range", true).SetValue(new Slider(2000, 500, 2400)));
+                    rpull.AddItem(new MenuItem("balistapackets", "Use Packets", true).SetValue(true));
+                    rpull.AddItem(new MenuItem("balistaActive", "Active", true).SetValue(true));
+                }
+                addblitzskarner = 1;
+            }
             onupdatetimers = Game.ClockTime;
         }
         static void harass() {
@@ -145,18 +175,26 @@ namespace Kalimá {
             if (mymana < minmana) { return; }//quick check to return if less than minmana...
 
             if (kalm.Item("harassQ", true).GetValue<Boolean>() && mymana > lqmana && Q.IsReady(1) && !Player.IsDashing()) {
-                foreach (var enemy in ObjectManager.Get<Obj_AI_Hero>().Where(h => h.IsValidTarget(Q.Range) && Q.CanCast(h))) {
-                    if (Q.GetPrediction(enemy).Hitchance >= gethitchanceQ) {
-                        Q.Cast(enemy);
-                    }
-                    if (Q.GetPrediction(enemy).Hitchance == HitChance.Collision) {
-                        var collide = Q.GetPrediction(enemy).CollisionObjects;
-                        var minionkillcount = 0;
-                        foreach (var minion in collide) {
-                            if (minion.Health > Q.GetDamage(minion)) { minionkillcount++; }
-                        }
-                        if (minionkillcount > 0 && Q.GetPrediction(enemy).Hitchance >= gethitchanceQ) {
-                            Q.Cast(enemy);
+                var enemies = HeroManager.Enemies.FindAll(h => 
+                    h.IsValidTarget(Q.Range) && Q.CanCast(h) &&
+                    ((Q.GetPrediction(h).Hitchance >= gethitchanceQ) ||
+                    (Q.GetPrediction(h).Hitchance == HitChance.Collision)));
+                if (enemies != null) {
+                    foreach (var enemy in enemies) {
+                        switch (Q.GetPrediction(enemy).Hitchance) {
+                            case HitChance.Collision:
+                                var collide = Q.GetPrediction(enemy).CollisionObjects;
+                                var dontbother = 0;
+                                foreach (var thing in collide) {
+                                    if (thing.Health < Q.GetDamage(thing)) { dontbother = 1; }
+                                }
+                                if (dontbother == 0) {
+                                    Q.Cast(enemy);
+                                }
+                                break;
+                            default:
+                                Q.Cast(enemy);
+                                break;
                         }
                     }
                 }
@@ -166,20 +204,11 @@ namespace Kalimá {
             if (mymana < lemana || !E.IsReady()) { return; }
 
             if (kalm.Item("harassE", true).GetValue<Slider>().Value >= 1 && kalm.Item("harassEoutOfRange", true).GetValue<Boolean>()) {
-                var minionkillcount = 0;
                 //use R.range instead of E.range so it can harass ".outofrange" as long as E is castable
-                var Minions = MinionManager.GetMinions(Player.ServerPosition, R.Range, MinionTypes.All, MinionTeam.NotAlly);
-                if (Minions != null) {
-                    foreach (var Minion in Minions.Where(x => E.CanCast(x) && x.Health <= GetEDamage(x))) { minionkillcount++; }
-
-                    if (minionkillcount > 0) {
-                        foreach (var enemy in ObjectManager.Get<Obj_AI_Hero>().Where(h => E.CanCast(h))) {
-                            if (minionkillcount >= kalm.Item("harassE", true).GetValue<Slider>().Value) {
-                                E.Cast();
-                                return;
-                            }
-                        }
-                    }
+                var Minions = MinionManager.GetMinions(Player.ServerPosition, R.Range, MinionTypes.All, MinionTeam.NotAlly).FindAll(x => x.Health < GetEDamage(x) && E.IsReady() && E.CanCast(x));
+                if (Minions != null && Minions.Count() >= kalm.Item("harassE", true).GetValue<Slider>().Value) {
+                    var enemy = HeroManager.Enemies.Find(x => E.CanCast(x));
+                    if (enemy != null) { E.Cast(); }
                 }
             }
         }
@@ -229,61 +258,76 @@ namespace Kalimá {
             if (lemana < minmana) { minmana = lemana; }
             if (mymana < minmana) { return; }
 
-            var Minions = MinionManager.GetMinions(Player.ServerPosition, E.Range, MinionTypes.All, MinionTeam.Enemy);
+            var Minions = MinionManager.GetMinions(Player.ServerPosition, E.Range, MinionTypes.All, MinionTeam.Enemy).FindAll(x => (x.Health < Q.GetDamage(x) && Q.CanCast(x)) || (x.Health < GetEDamage(x) && E.CanCast(x)));
             if (Minions.Count <= 0) { return; }
 
             if (kalm.Item("laneclearQ", true).GetValue<Boolean>() && Q.IsReady() && mymana >= lqmana && !Player.IsDashing()) {
-                foreach (var minion in Minions.Where(x => x.Health <= Q.GetDamage(x))) {
-                    var killcount = 0;
-
-                    foreach (var colminion in Q_GetCollisionMinions(Player, Player.ServerPosition.Extend(minion.ServerPosition, Q.Range))) {
-                        if (colminion.Health <= Q.GetDamage(colminion))
-                            killcount++;
-                        else
-                            break;
-                    }
-
-                    if (killcount >= kalm.Item("laneclearQcast", true).GetValue<Slider>().Value) {
-                        Q.Cast(minion);
-                        break;
-                    }
+                var minionsQ = Minions.Find(x => 
+                    x.Health < Q.GetDamage(x) &&
+                    Q_GetCollisionMinions(Player, Player.ServerPosition.Extend(x.ServerPosition, Q.Range)).Count >= kalm.Item("laneclearQcast", true).GetValue<Slider>().Value &&
+                    Q_GetCollisionMinions(Player, Player.ServerPosition.Extend(x.ServerPosition, Q.Range)).All(xx => xx.Health < Q.GetDamage(xx)));
+                if (minionsQ != null) {
+                    Q.Cast(minionsQ);
                 }
             }
 
             if (kalm.Item("laneclearE", true).GetValue<Boolean>() && E.IsReady() && mymana >= lemana && !Player.IsDashing()) {
-                var minionkillcount = 0;
-
-                foreach (var Minion in Minions.Where(x => E.CanCast(x) && x.Health <= GetEDamage(x))) { minionkillcount++; }
-
-                if (minionkillcount >= kalm.Item("laneclearEcast", true).GetValue<Slider>().Value) {
+                var minionsE = Minions.Where(x => x.Health < GetEDamage(x)-5);
+                if (minionsE != null && minionsE.Count() >= kalm.Item("laneclearEcast", true).GetValue<Slider>().Value) {
                     E.Cast();
                 }
             }
         }
 
         static void Event_OnProcessSpellCast(Obj_AI_Base sender, GameObjectProcessSpellCastEventArgs args) {
-            if (sender.IsMe) {
+            //3 if's for no checks later...
+            if (soulmate == null) { return; }
+            if (!R.IsReady()) { return; }
+            if (!kalm.Item("savesoulbound", true).GetValue<Boolean>()) { return; }
+/*            if (sender.IsMe) {
                 if (args.SData.Name == "KalistaExpungeWrapper") {
-//                    Orbwalking.ResetAutoAttackTimer();
+                    Orbwalking.ResetAutoAttackTimer(); //dont reset because it does double E's and puts E on cooldown
                 }
-            }
-            if (kalm.Item("savesoulbound", true).GetValue<Boolean>() && R.IsReady() && soulmate != null) {
-                if (sender.Type == GameObjectType.obj_AI_Hero && sender.IsEnemy) {
-                    if (soulmate.HealthPercent <= kalm.Item("savesoulboundat").GetValue<Slider>().Value) {
-                        R.Cast();
-                    }
+            }*/
+            if (sender.IsEnemy && sender.ServerPosition.Distance(soulmate.ServerPosition) < 1500f) {
+                if (soulmate.HealthPercent <= kalm.Item("savesoulboundat").GetValue<Slider>().Value) {
+                    R.Cast();
                 }
             }
         }
 
         static void Event_OnNonKillableMinion(AttackableUnit minion) {
-            if (!kalm.Item("laneclearE", true).GetValue<Boolean>()) { return; }
+            if (!kalm.Item("laneclearE", true).GetValue<Boolean>() || !E.IsReady()) { return; }
             if (Manapercent < kalm.Item("laneclearmanaminE", true).GetValue<Slider>().Value) { return; }
 
             if (kalm.Item("laneclearlasthit", true).GetValue<Boolean>()) {
-                if (E.CanCast((Obj_AI_Base)minion) && minion.Health <= GetEDamage((Obj_AI_Base)minion)) {
+                if (E.CanCast((Obj_AI_Base)minion) && minion.Health <= GetEDamage((Obj_AI_Base)minion)-5) {
                     E.Cast();
                 }
+            }
+        }
+
+        static void Event_OnBuffAdd(Obj_AI_Base sender, Obj_AI_BaseBuffAddEventArgs args) {
+            if (soulmate == null || Player.IsDead || !R.IsReady()) { return; }
+            if (soulmate.ChampionName == "Blitzcrank" || soulmate.ChampionName == "Skarner") {
+                if (!kalm.Item("balistaActive", true).GetValue<Boolean>()) { return; }
+                if (sender.CharData.BaseSkinName == soulmate.CharData.BaseSkinName) {
+                    var enemy = HeroManager.Enemies.Find(a => a.Buffs.Any(b => b.Name.ToLower().Contains("rocketgrab2") || b.Name.ToLower().Contains("skarnerimpale")));
+                    if (enemy == null) { return; }
+                    if (kalimenu.Item("target" + enemy.ChampionName).GetValue<bool>() && enemy.Health > 200) {
+                        var pos = enemy.ServerPosition;
+                        if (Player.ServerPosition.Distance(pos) < kalm.Item("balistenemyamaxrange", true).GetValue<Slider>().Value &&
+                            Player.ServerPosition.Distance(pos) > kalm.Item("balistaminrange", true).GetValue<Slider>().Value) {
+                                R.Cast(kalm.Item("balistapackets").GetValue<bool>());
+                        }                    
+                    }
+                }
+            }
+        }
+
+        static void Event_OnLevelUp(Obj_AI_Base sender, CustomEvents.Unit.OnLevelUpEventArgs args) {
+            if (sender.NetworkId == Player.NetworkId && kalm.Item("AutoLevel", true).GetValue<Boolean>()) {
+                Player.Spellbook.LevelUpSpell(AutoLevel[args.NewLevel - 1].Slot);
             }
         }
 
@@ -302,12 +346,46 @@ namespace Kalimá {
             if (W.IsReady() && dW.Active) { Render.Circle.DrawCircle(curposition, W.Range, dW.Color); }
             if (E.IsReady() && dE.Active) { Render.Circle.DrawCircle(curposition, E.Range, dE.Color); }
             if (R.IsReady() && dR.Active) { Render.Circle.DrawCircle(curposition, R.Range, dR.Color); }
-            draw_soulmate_link(kalm.Item("drawsoulmatelink", true).GetValue<Boolean>());
+            if (kalm.Item("drawsoulmatelink", true).GetValue<Boolean>()) {
+                draw_soulmate_link();
+            }
             if (dj.Active) {
                 draw_jump_spots();
             }
+            
             if (kalm.Item("drawcoords", true).GetValue<Boolean>()) {
                 Drawing.DrawText(Drawing.Width * 0.45f, Drawing.Height * 0.70f, Color.GreenYellow, "Coords:" + Player.Position);
+            }
+            if (soulmate != null) {
+                if (soulmate.ChampionName == "Blitzcrank" || soulmate.ChampionName == "Skarner") {
+                    if (kalm.Item("balistaActive", true).GetValue<Boolean>()) {
+                        if (kalm.Item("drawminrange", true).GetValue<Boolean>()) {
+                            Render.Circle.DrawCircle(curposition, kalm.Item("balistaminrange", true).GetValue<Slider>().Value, Color.Chartreuse);
+                        }
+                        if (kalm.Item("drawmaxrange", true).GetValue<Boolean>()) {
+                            Render.Circle.DrawCircle(curposition, kalm.Item("balistamaxrange", true).GetValue<Slider>().Value, Color.Green);
+                        }
+                        if (kalm.Item("lineformat", true).GetValue<Boolean>()) {
+                            var lineformat = HeroManager.Enemies.FindAll(a => a.ServerPosition.Distance(Player.ServerPosition) <= kalm.Item("balistenemyamaxrange", true).GetValue<Slider>().Value && !a.IsDead && a.IsVisible);
+                            var foundvalidtarget = 0;
+                            if (lineformat != null &&
+                                soulmate.ServerPosition.Distance(Player.ServerPosition) <= kalm.Item("balistamaxrange", true).GetValue<Slider>().Value &&
+                                soulmate.ServerPosition.Distance(Player.ServerPosition) >= kalm.Item("balistaminrange", true).GetValue<Slider>().Value) {
+                                foreach (var x in lineformat) {
+                                    if (Player.ServerPosition.Distance(x.ServerPosition) <= kalm.Item("balistenemyamaxrange", true).GetValue<Slider>().Value) {
+                                        if (soulmate.ServerPosition.Distance(x.ServerPosition) < 1200f) {
+                                            Drawing.DrawLine(x.HPBarPosition.X, x.HPBarPosition.Y, soulmate.HPBarPosition.X, soulmate.HPBarPosition.Y, 2.0f, Color.Red);
+                                            foundvalidtarget++;                                        
+                                        }
+                                    }
+                                }
+                                if (foundvalidtarget > 0) {
+                                    Drawing.DrawLine(soulmate.HPBarPosition.X, soulmate.HPBarPosition.Y, Player.HPBarPosition.X, Player.HPBarPosition.Y, 2.0f, Color.Red);
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -451,15 +529,11 @@ namespace Kalimá {
                         autoWtimers = null;
                     } else { return; }
                 }
-                Vector3 basepos = new Vector3(440f, 428f, 183.5748f);
-                var distancefrombase = Player.Distance(basepos);
-                if (distancefrombase > 3500) { return; }
-                var closestenemy = ObjectManager.Get<Obj_AI_Hero>().Where(h => h.IsValidTarget(W.Range)).FirstOrDefault().ServerPosition;
-                if (closestenemy != null && Player.Distance(closestenemy) < 3000f) {return;}
-
-                if ((Player.ManaPercent < 50) || Player.IsAttackingPlayer || Player.IsDashing() || Player.IsWindingUp) { return; }
+                var closestenemy = HeroManager.Enemies.Find(x => Player.ServerPosition.Distance(x.ServerPosition) < 2000f);
+                if (closestenemy != null) { return; }
+                if ((Player.ManaPercent < 50) || Player.IsDashing() || Player.IsWindingUp) { return; }
                 fillsentinels();
-//                var sentinels = _mysentinels.Where(s => s.Name.Contains("RobotBuddy"));
+
                 Random rnd = new Random();
                 var sentineldestinations = _mysentinels.Where(s => !s.Name.Contains("RobotBuddy")).OrderBy(s => rnd.Next()).ToList();
                 foreach (var destinations in sentineldestinations) {
@@ -483,13 +557,13 @@ namespace Kalimá {
                 }
             }
         }
-
-        static void draw_soulmate_link(bool drawlink) {
-            if (Player.IsDead || !drawlink || W.Level == 0) { return; }
-
-            if (soulmate == null) {
+        static void draw_soulmate_link() {
+            if (soulmate != null) {
+                if (Player.IsDead || W.Level == 0) { return; }
+            } else {
                 soulmate = HeroManager.Allies.Find(a => !a.IsMe && a.Buffs.Any(b => b.Name.Contains("kalistacoopstrikeally")));
             }
+
             if (soulmate.IsDead) {
                 Drawing.DrawText(Drawing.Width * 0.45f, Drawing.Height * 0.82f, Color.Red, "Connection Signal with " + soulmate.ChampionName + ": None");
             } else {
