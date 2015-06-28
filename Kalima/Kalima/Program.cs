@@ -22,7 +22,7 @@ namespace Kalimá {
         static Spell Q, W, E, R;
         static Obj_AI_Hero soulmate;//store the soulbound friend..
         static float soulmateRange = 1250f;
-        static Spell[] AutoLevel;
+        //static Spell[] AutoLevel;
 
         static void Game_OnGameLoad(EventArgs args) {
             if (Player.ChampionName != "Kalista") { return; }
@@ -81,6 +81,7 @@ namespace Kalimá {
 
 //            MiscM.AddItem(new MenuItem("AutoLevel", "Auto Level Skills", true).SetValue(true));
             MiscM.AddItem(new MenuItem("autoW", "Auto W", true).SetValue(true));
+            MiscM.AddItem(new MenuItem("autowenemyclose", "Dont Send W with an enemy in X Range:", true).SetValue(new Slider(2000, 0, 5000)));
             MiscM.AddItem(new MenuItem("killsteal", "Kill Steal", true).SetValue(true));
             MiscM.AddItem(new MenuItem("savesoulbound", "Save Soulbound (With R)", true).SetValue(true));
             MiscM.AddItem(new MenuItem("savesoulboundat", "Save when health < %", true).SetValue(new Slider(25, 0, 100)));
@@ -96,10 +97,35 @@ namespace Kalimá {
             //marksman...
             DrawM.AddItem(new MenuItem("drawsoulmatelink", "Draw Link Signal", true).SetValue(true));
             DrawM.AddItem(new MenuItem("drawcoords", "Draw Map Coords", true).SetValue(true));
+            var blitzskarneringame = HeroManager.Allies.Find(x => x.CharData.BaseSkinName == "Blitzcrank" || x.CharData.BaseSkinName == "Skarner");
+            if (blitzskarneringame != null) {
+                //check if its blitz or skarner the ally...
+                string menuname;
+                if (blitzskarneringame.CharData.BaseSkinName == "Blitzcrank") {
+                    menuname = "Balista";
+                } else { menuname = "Salista"; }
+
+                Menu balista = kalimenu.AddSubMenu(new Menu(menuname, menuname));
+
+                Menu targetselect = balista.AddSubMenu(new Menu("Target Selector", "Target Selector"));
+                Menu champselect = balista.AddSubMenu(new Menu("Drawings", "Drawings"));
+                champselect.AddItem(new MenuItem("drawminrange", "Min Range", true).SetValue(false));
+                champselect.AddItem(new MenuItem("drawmaxrange", "Max Range", true).SetValue(false));
+                champselect.AddItem(new MenuItem("lineformat", "Line Range", true).SetValue(true));
+
+                foreach (var enemy in HeroManager.Enemies.FindAll(x => x.IsEnemy)) {
+                    targetselect.AddItem(new MenuItem("target" + enemy.ChampionName, enemy.ChampionName).SetValue(true));
+                }
+                balista.AddItem(new MenuItem("balistaminrange", "Min Range", true).SetValue(new Slider(600, 500, 1400)));
+                balista.AddItem(new MenuItem("balistamaxrange", "Max Range", true).SetValue(new Slider(1350, 500, 1400)));
+                balista.AddItem(new MenuItem("balistenemyamaxrange", "Enemy Max Range", true).SetValue(new Slider(2000, 500, 2400)));
+                balista.AddItem(new MenuItem("balistapackets", "Use Packets", true).SetValue(true));
+                balista.AddItem(new MenuItem("balistaActive", "Active", true).SetValue(true));
+            }
+
             kalimenu.AddToMainMenu();
         }
 
-        static float addblitzskarner = 0;
         static float? onupdatetimers;//limit onupdate to 5 times per second
         static void Game_OnUpdate(EventArgs args) {
             if (Player.IsDead || Player.IsRecalling()) { return; }
@@ -136,33 +162,6 @@ namespace Kalimá {
                     break;
                 case Orbwalking.OrbwalkingMode.Mixed:
                     break;
-            }
-            if (addblitzskarner == 0 && soulmate != null && W.IsReady()) {
-                //check if its blitz or skarner the ally...
-                if (soulmate.ChampionName == "Blitzcrank" || soulmate.ChampionName == "Skarner") {
-                    var menuname = "hereliesthename";
-                    if (soulmate.ChampionName == "Blitzcrank") {
-                        menuname = "Balista";
-                    } else { menuname = "Salista"; }
-
-                    Menu rpull = kalimenu.AddSubMenu(new Menu(menuname, menuname));
-
-                    Menu targetselect = rpull.AddSubMenu(new Menu("Target Selector", "Target Selector"));
-                    Menu champselect = rpull.AddSubMenu(new Menu("Drawings", "Drawings"));
-                    champselect.AddItem(new MenuItem("drawminrange", "Min Range", true).SetValue(false));
-                    champselect.AddItem(new MenuItem("drawmaxrange", "Max Range", true).SetValue(false));
-                    champselect.AddItem(new MenuItem("lineformat", "Line Range", true).SetValue(true));
-
-                    foreach (Obj_AI_Hero enem in ObjectManager.Get<Obj_AI_Hero>().Where(enem => enem.IsValid && enem.IsEnemy)) {
-                        targetselect.AddItem(new MenuItem("target" + enem.ChampionName, enem.ChampionName).SetValue(true));
-                    }
-                    rpull.AddItem(new MenuItem("balistaminrange", "Min Range", true).SetValue(new Slider(700, 500, 1400)));
-                    rpull.AddItem(new MenuItem("balistamaxrange", "Max Range", true).SetValue(new Slider(1350, 500, 1400)));
-                    rpull.AddItem(new MenuItem("balistenemyamaxrange", "Enemy Max Range", true).SetValue(new Slider(2000, 500, 2400)));
-                    rpull.AddItem(new MenuItem("balistapackets", "Use Packets", true).SetValue(true));
-                    rpull.AddItem(new MenuItem("balistaActive", "Active", true).SetValue(true));
-                }
-                addblitzskarner = 1;
             }
             onupdatetimers = Game.ClockTime;
         }
@@ -281,15 +280,14 @@ namespace Kalimá {
 
         static void Event_OnProcessSpellCast(Obj_AI_Base sender, GameObjectProcessSpellCastEventArgs args) {
             //3 if's for no checks later...
-            if (soulmate == null) { return; }
-            if (!R.IsReady()) { return; }
+            if (soulmate == null || Player.IsDead || !R.IsReady()) { return; }
             if (!kalm.Item("savesoulbound", true).GetValue<Boolean>()) { return; }
 /*            if (sender.IsMe) {
                 if (args.SData.Name == "KalistaExpungeWrapper") {
                     Orbwalking.ResetAutoAttackTimer(); //dont reset because it does double E's and puts E on cooldown
                 }
             }*/
-            if (sender.IsEnemy && sender.ServerPosition.Distance(soulmate.ServerPosition) < 1500f) {
+            if (sender.IsEnemy && sender.Distance(soulmate.ServerPosition) < 1500f) {
                 if (soulmate.HealthPercent <= kalm.Item("savesoulboundat").GetValue<Slider>().Value) {
                     R.Cast();
                 }
@@ -308,21 +306,6 @@ namespace Kalimá {
         }
 
         static void Event_OnBuffAdd(Obj_AI_Base sender, Obj_AI_BaseBuffAddEventArgs args) {
-            if (soulmate == null || Player.IsDead || !R.IsReady()) { return; }
-            if (soulmate.ChampionName == "Blitzcrank" || soulmate.ChampionName == "Skarner") {
-                if (!kalm.Item("balistaActive", true).GetValue<Boolean>()) { return; }
-                if (sender.CharData.BaseSkinName == soulmate.CharData.BaseSkinName) {
-                    var enemy = HeroManager.Enemies.Find(a => a.Buffs.Any(b => b.Name.ToLower().Contains("rocketgrab2") || b.Name.ToLower().Contains("skarnerimpale")));
-                    if (enemy == null) { return; }
-                    if (kalimenu.Item("target" + enemy.ChampionName).GetValue<bool>() && enemy.Health > 200) {
-                        var pos = enemy.ServerPosition;
-                        if (Player.ServerPosition.Distance(pos) < kalm.Item("balistenemyamaxrange", true).GetValue<Slider>().Value &&
-                            Player.ServerPosition.Distance(pos) > kalm.Item("balistaminrange", true).GetValue<Slider>().Value) {
-                                R.Cast(kalm.Item("balistapackets").GetValue<bool>());
-                        }                    
-                    }
-                }
-            }
         }
 
         static void Event_OnLevelUp(Obj_AI_Base sender, CustomEvents.Unit.OnLevelUpEventArgs args) {
@@ -355,10 +338,26 @@ namespace Kalimá {
             
             if (kalm.Item("drawcoords", true).GetValue<Boolean>()) {
                 Drawing.DrawText(Drawing.Width * 0.45f, Drawing.Height * 0.70f, Color.GreenYellow, "Coords:" + Player.Position);
+                DraWing.drawtext("draw_coords", 5, Drawing.Width * 45f, Drawing.Height * 30f, Color.Blue, "hello there");
             }
             if (soulmate != null) {
                 if (soulmate.ChampionName == "Blitzcrank" || soulmate.ChampionName == "Skarner") {
                     if (kalm.Item("balistaActive", true).GetValue<Boolean>()) {
+                        var enemy = HeroManager.Enemies.Find(a => a.Buffs.Any(b => b.Name.ToLower().Contains("rocketgrab2") || b.Name.ToLower().Contains("skarnerimpale")));
+                        if (enemy != null) {
+                            //do both checks since we might have both in a game...
+                            var doult = 0;
+                            if (kalimenu.Item("target" + enemy.ChampionName).GetValue<bool>() && enemy.Health > 200 && isbalista(enemy) != null) {
+                                if (enemy.HasBuff("rocketgrab2") && soulmate.ChampionName == "Blitzcrank") {
+                                    Notifications.AddNotification(new Notification("Doing Balista on: " + enemy.CharData.BaseSkinName, 4000).SetTextColor(Color.FromArgb(255, 0, 0)));
+                                    doult = 1;
+                                }
+                                if (enemy.HasBuff("skarnerimpale") && soulmate.ChampionName == "Skarner") {
+                                    doult = 1;
+                                }
+                                if (doult == 1) { R.Cast(); }
+                            }
+                        }
                         if (kalm.Item("drawminrange", true).GetValue<Boolean>()) {
                             Render.Circle.DrawCircle(curposition, kalm.Item("balistaminrange", true).GetValue<Slider>().Value, Color.Chartreuse);
                         }
@@ -368,15 +367,11 @@ namespace Kalimá {
                         if (kalm.Item("lineformat", true).GetValue<Boolean>()) {
                             var lineformat = HeroManager.Enemies.FindAll(a => a.ServerPosition.Distance(Player.ServerPosition) <= kalm.Item("balistenemyamaxrange", true).GetValue<Slider>().Value && !a.IsDead && a.IsVisible);
                             var foundvalidtarget = 0;
-                            if (lineformat != null &&
-                                soulmate.ServerPosition.Distance(Player.ServerPosition) <= kalm.Item("balistamaxrange", true).GetValue<Slider>().Value &&
-                                soulmate.ServerPosition.Distance(Player.ServerPosition) >= kalm.Item("balistaminrange", true).GetValue<Slider>().Value) {
+                            if (lineformat != null && isbalista(soulmate) != null) {
                                 foreach (var x in lineformat) {
-                                    if (Player.ServerPosition.Distance(x.ServerPosition) <= kalm.Item("balistenemyamaxrange", true).GetValue<Slider>().Value) {
-                                        if (soulmate.ServerPosition.Distance(x.ServerPosition) < 1200f) {
-                                            Drawing.DrawLine(x.HPBarPosition.X, x.HPBarPosition.Y, soulmate.HPBarPosition.X, soulmate.HPBarPosition.Y, 2.0f, Color.Red);
-                                            foundvalidtarget++;                                        
-                                        }
+                                    if (isbalista(x) != null) {
+                                        Drawing.DrawLine(x.HPBarPosition.X, x.HPBarPosition.Y, soulmate.HPBarPosition.X, soulmate.HPBarPosition.Y, 2.0f, Color.Red);
+                                        foundvalidtarget++;
                                     }
                                 }
                                 if (foundvalidtarget > 0) {
@@ -387,6 +382,37 @@ namespace Kalimá {
                     }
                 }
             }
+        }
+
+        static Obj_AI_Hero isbalista(Obj_AI_Hero hero) {
+            if (soulmate == null) { return null; }
+            if (soulmate.IsDead) { return null; }
+            if (soulmate.CharData.BaseSkinName == "Blitzcrank" || soulmate.CharData.BaseSkinName == "Skarner") {
+                var enemymaxrange = kalm.Item("balistenemyamaxrange", true).GetValue<Slider>().Value;
+                var balistaminrange = kalm.Item("balistaminrange", true).GetValue<Slider>().Value;
+                var balistamaxrange = kalm.Item("balistamaxrange", true).GetValue<Slider>().Value;
+
+                var closestenemiestome = HeroManager.Enemies.FindAll(x => 
+                    x.Distance(Player.ServerPosition) < enemymaxrange && !x.IsDead &&
+                    x.Distance(Player.ServerPosition) > balistaminrange &&
+                    x.Distance(soulmate.ServerPosition) < balistamaxrange
+                    );
+                if (closestenemiestome == null) { return null; }
+
+                var mysoul = HeroManager.Allies.Find(x => 
+                    x.CharData.BaseSkinName == soulmate.CharData.BaseSkinName && 
+                    Player.Distance(x.ServerPosition) > balistaminrange &&
+                    Player.Distance(x.ServerPosition) < balistamaxrange && closestenemiestome != null);
+                if (mysoul == null) { return null; }
+
+                if (mysoul.CharData.BaseSkinName == hero.CharData.BaseSkinName) {
+                    return hero;
+                } else {
+                    var enemy = closestenemiestome.Find(x => x.CharData.BaseSkinName == hero.CharData.BaseSkinName);
+                    if (enemy != null) { return enemy; }
+                }
+            }
+            return null;
         }
 
         static List<Obj_AI_Base> Q_GetCollisionMinions(Obj_AI_Hero source, Vector3 targetposition) {
@@ -420,7 +446,7 @@ namespace Kalimá {
 
         static float GetEDamage(Obj_AI_Base target) {
             var stacks = target.GetBuffCount("kalistaexpungemarker");
-            if (stacks == null || !E.IsReady()) { return 1; }
+            if (stacks == 0 || !E.IsReady()) { return 1; }
 
             var baseDamage = new[] { 20, 30, 40, 50, 60 };
             var bd = baseDamage[E.Level - 1];
@@ -529,7 +555,7 @@ namespace Kalimá {
                         autoWtimers = null;
                     } else { return; }
                 }
-                var closestenemy = HeroManager.Enemies.Find(x => Player.ServerPosition.Distance(x.ServerPosition) < 2000f);
+                var closestenemy = HeroManager.Enemies.Find(x => Player.ServerPosition.Distance(x.ServerPosition) < kalm.Item("autowenemyclose", true).GetValue<Slider>().Value);
                 if (closestenemy != null) { return; }
                 if ((Player.ManaPercent < 50) || Player.IsDashing() || Player.IsWindingUp) { return; }
                 fillsentinels();
@@ -558,10 +584,10 @@ namespace Kalimá {
             }
         }
         static void draw_soulmate_link() {
-            if (soulmate != null) {
-                if (Player.IsDead || W.Level == 0) { return; }
-            } else {
+            if (Player.IsDead || W.Level == 0) { return; }
+            if (soulmate == null) {
                 soulmate = HeroManager.Allies.Find(a => !a.IsMe && a.Buffs.Any(b => b.Name.Contains("kalistacoopstrikeally")));
+                if (soulmate == null) { return; }
             }
 
             if (soulmate.IsDead) {
@@ -605,6 +631,7 @@ namespace Kalimá {
         static Vector3? canjump() {
             var wallCheck = VectorHelper.GetFirstWallPoint(Player.Position, Player.Position);
             //loop angles around the player to check for a point to jump to
+            //credits to hellsing wherever it has his code here somewhere... xD
             float maxAngle = 80;
             float step = maxAngle / 20;
             float currentAngle = 0;
@@ -666,9 +693,43 @@ namespace Kalimá {
 
             var pos1007 = new Vector3(6616f, 11674f, 53.83324f);
             var pos1008 = new Vector3(6462f, 12004f, 56.4768f);
-            jumpPos.Add(pos1007, pos1008);
+            jumpPos.Add(pos1007, pos1008); //DraWing("drawblitztext","text",5000,25f,30f,Color.Blue,"here lies the shit");
         }
 
+    }
+    internal class DraWing {
+        private static readonly Obj_AI_Hero Player = ObjectManager.Player;
+        private static void drawinit() {
+            Drawing.OnDraw += Drawing_OnDraw;
+        }
+
+        private static void Drawing_OnDraw(EventArgs args) {
+            var timerightnow = Game.ClockTime;
+            foreach (var x in drawtextlist) {
+                if (Game.ClockTime - x.Addedon > x.Timer) {
+                    drawtextlist.Remove(new Drawtext() { Name = x.Name, Timer = x.Timer, Addedon = x.Addedon, Format = x.Format, X = x.X, Color = x.Color, Y = x.Y });
+                } else {
+                    Drawing.DrawText(x.X, x.Y, x.Color, x.Format);
+                }
+            }
+        }
+        private static List<Drawtext> drawtextlist = new List<Drawtext>();
+        private class Drawtext {
+            public string Name {get; set; }
+            public int Timer { get; set; }
+            public float Addedon { get; set; }
+            public float X { get; set; }
+            public float Y { get; set; }
+            public Color Color { get; set; }
+            public string Format { get; set; }
+        }
+        public static void drawtext(string circle_name, int timer, float X, float Y, Color color, string format) {
+            if (drawtextlist.Find(x => x.Name == circle_name) != null) {
+                drawtextlist.Remove(new Drawtext() { Name = circle_name });            
+            }
+            drawtextlist.Add(new Drawtext() { Name = circle_name, Timer = timer, Addedon = Game.ClockTime,X = X, Y = Y, Color = color, Format = format});
+            return;
+        }
     }
 
     internal class VectorHelper {
