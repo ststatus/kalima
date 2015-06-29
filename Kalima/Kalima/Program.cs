@@ -119,7 +119,6 @@ namespace Kalimá {
                 balista.AddItem(new MenuItem("balistaminrange", "Min Range", true).SetValue(new Slider(600, 500, 1400)));
                 balista.AddItem(new MenuItem("balistamaxrange", "Max Range", true).SetValue(new Slider(1350, 500, 1400)));
                 balista.AddItem(new MenuItem("balistenemyamaxrange", "Enemy Max Range", true).SetValue(new Slider(2000, 500, 2400)));
-                balista.AddItem(new MenuItem("balistapackets", "Use Packets", true).SetValue(true));
                 balista.AddItem(new MenuItem("balistaActive", "Active", true).SetValue(true));
             }
 
@@ -204,7 +203,7 @@ namespace Kalimá {
 
             if (kalm.Item("harassE", true).GetValue<Slider>().Value >= 1 && kalm.Item("harassEoutOfRange", true).GetValue<Boolean>()) {
                 //use R.range instead of E.range so it can harass ".outofrange" as long as E is castable
-                var Minions = MinionManager.GetMinions(Player.ServerPosition, R.Range, MinionTypes.All, MinionTeam.NotAlly).FindAll(x => x.Health < GetEDamage(x) && E.IsReady() && E.CanCast(x));
+                var Minions = MinionManager.GetMinions(Player.ServerPosition, R.Range, MinionTypes.All, MinionTeam.NotAlly).FindAll(x => (x.Health + (x.HPRegenRate / 2)) < GetEDamage(x)-10 && E.IsReady() && E.CanCast(x));
                 if (Minions != null && Minions.Count() >= kalm.Item("harassE", true).GetValue<Slider>().Value) {
                     var enemy = HeroManager.Enemies.Find(x => E.CanCast(x));
                     if (enemy != null) { E.Cast(); }
@@ -271,7 +270,7 @@ namespace Kalimá {
             }
 
             if (kalm.Item("laneclearE", true).GetValue<Boolean>() && E.IsReady() && mymana >= lemana && !Player.IsDashing()) {
-                var minionsE = Minions.Where(x => x.Health < GetEDamage(x)-5);
+                var minionsE = Minions.Where(x => (x.Health + (x.HPRegenRate / 2)) < GetEDamage(x) && E.CanCast(x));
                 if (minionsE != null && minionsE.Count() >= kalm.Item("laneclearEcast", true).GetValue<Slider>().Value) {
                     E.Cast();
                 }
@@ -299,7 +298,7 @@ namespace Kalimá {
             if (Manapercent < kalm.Item("laneclearmanaminE", true).GetValue<Slider>().Value) { return; }
 
             if (kalm.Item("laneclearlasthit", true).GetValue<Boolean>()) {
-                if (E.CanCast((Obj_AI_Base)minion) && minion.Health <= GetEDamage((Obj_AI_Base)minion)-5) {
+                if (E.CanCast((Obj_AI_Base)minion) && minion.Health <= GetEDamage((Obj_AI_Base)minion)-10) {
                     E.Cast();
                 }
             }
@@ -341,7 +340,7 @@ namespace Kalimá {
                 DraWing.drawtext("draw_coords", 5, Drawing.Width * 45f, Drawing.Height * 30f, Color.Blue, "hello there");
             }
             if (soulmate != null) {
-                if (soulmate.ChampionName == "Blitzcrank" || soulmate.ChampionName == "Skarner") {
+                if (soulmate.ChampionName == "Blitzcrank" || soulmate.ChampionName == "Skarner" && R.IsReady()) {
                     if (kalm.Item("balistaActive", true).GetValue<Boolean>()) {
                         var enemy = HeroManager.Enemies.Find(a => a.Buffs.Any(b => b.Name.ToLower().Contains("rocketgrab2") || b.Name.ToLower().Contains("skarnerimpale")));
                         if (enemy != null) {
@@ -705,6 +704,7 @@ namespace Kalimá {
 
         private static void Drawing_OnDraw(EventArgs args) {
             var timerightnow = Game.ClockTime;
+            Drawing.DrawText(Drawing.Width * 0.45f, Drawing.Height * 0.30f, Color.GreenYellow, "here goes the ondraw func");
             foreach (var x in drawtextlist) {
                 if (Game.ClockTime - x.Addedon > x.Timer) {
                     drawtextlist.Remove(new Drawtext() { Name = x.Name, Timer = x.Timer, Addedon = x.Addedon, Format = x.Format, X = x.X, Color = x.Color, Y = x.Y });
@@ -730,6 +730,7 @@ namespace Kalimá {
             drawtextlist.Add(new Drawtext() { Name = circle_name, Timer = timer, Addedon = Game.ClockTime,X = X, Y = Y, Color = color, Format = format});
             return;
         }
+        //drawinit();
     }
 
     internal class VectorHelper {
