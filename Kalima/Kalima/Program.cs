@@ -22,9 +22,9 @@ namespace Kalimá {
         static Spell Q, W, E, R;
         static Obj_AI_Hero soulmate;//store the soulbound friend..
         static float soulmateRange = 1250f;
-        //static Spell[] AutoLevel;
+        static int MyLevel = 0;
 
-        static void Game_OnGameLoad(EventArgs args) {
+        static void Game_OnGameLoad(EventArgs args) {//"1 3 1 2 1 4 1 3 1 3 4 3 3 2 2 4 2 2";
             if (Player.ChampionName != "Kalista") { return; }
             Q = new Spell(SpellSlot.Q, 1150f);
             Q.SetSkillshot(0.25f, 40f, 1700f, true, SkillshotType.SkillshotLine);
@@ -35,10 +35,10 @@ namespace Kalimá {
             menuload();
             Game.OnUpdate += Game_OnUpdate;
             Drawing.OnDraw += Drawing_OnDraw;
+            Drawing.OnDraw += DraWing.Drawing_OnDraw;
             Obj_AI_Hero.OnProcessSpellCast += Event_OnProcessSpellCast;
             Orbwalking.OnNonKillableMinion += Event_OnNonKillableMinion;
             Obj_AI_Hero.OnBuffAdd += Event_OnBuffAdd;
-            CustomEvents.Unit.OnLevelUp += Event_OnLevelUp;
             FillPositions();
         }
 
@@ -79,7 +79,7 @@ namespace Kalimá {
             LaneM.AddItem(new MenuItem("laneclearmanaminE", "E requires % mana", true).SetValue(new Slider(30, 0, 100)));
             LaneM.AddItem(new MenuItem("laneclearlasthit", "E when non-killable by AA", true).SetValue(true));
 
-//            MiscM.AddItem(new MenuItem("AutoLevel", "Auto Level Skills", true).SetValue(true));
+            MiscM.AddItem(new MenuItem("AutoLevel", "Auto Level Skills", true).SetValue(true));
             MiscM.AddItem(new MenuItem("autoW", "Auto W", true).SetValue(true));
             MiscM.AddItem(new MenuItem("autowenemyclose", "Dont Send W with an enemy in X Range:", true).SetValue(new Slider(2000, 0, 5000)));
             MiscM.AddItem(new MenuItem("killsteal", "Kill Steal", true).SetValue(true));
@@ -161,6 +161,9 @@ namespace Kalimá {
                     break;
                 case Orbwalking.OrbwalkingMode.Mixed:
                     break;
+            }
+            if (Player.Level >= MyLevel) {
+                Event_OnLevelUp();            
             }
             onupdatetimers = Game.ClockTime;
         }
@@ -307,14 +310,30 @@ namespace Kalimá {
         static void Event_OnBuffAdd(Obj_AI_Base sender, Obj_AI_BaseBuffAddEventArgs args) {
         }
 
-        static void Event_OnLevelUp(Obj_AI_Base sender, CustomEvents.Unit.OnLevelUpEventArgs args) {
-//            if (sender.NetworkId == Player.NetworkId && kalm.Item("AutoLevel", true).GetValue<Boolean>()) {
-//                Player.Spellbook.LevelUpSpell(AutoLevel[args.NewLevel - 1].Slot);
-//            }
+        static void Event_OnLevelUp() {
+            if (kalm.Item("AutoLevel", true).GetValue<Boolean>()) {
+                DraWing.drawtext("levelupspells", 1, Drawing.Width * 0.45f, Drawing.Height * 0.50f, Color.GreenYellow, "Levelling up Spells");
+                if (MyLevel == 0) {
+                    Player.Spellbook.LevelUpSpell(SpellSlot.W);
+                    MyLevel++;
+                } else {
+                    MyLevel++;
+                    Player.Spellbook.LevelUpSpell(SpellSlot.R);
+                    Player.Spellbook.LevelUpSpell(SpellSlot.E);
+                    Player.Spellbook.LevelUpSpell(SpellSlot.Q);
+                    Player.Spellbook.LevelUpSpell(SpellSlot.W);
+                }
+            }
         }
-
+        static float? ondrawtimers;//limit ondraw to 30 fps (force DraWing class to draw by frame)
         static void Drawing_OnDraw(EventArgs args) {
             if (Player.IsDead) { return; }
+            if (ondrawtimers != null) {
+                if ((Game.ClockTime - ondrawtimers) > 0.0333) {
+                    ondrawtimers = null;
+                } else { return; }
+            }
+            ondrawtimers = Game.ClockTime;
 
             var curposition = Player.Position;
             var dAA = kalm.Item("drawAA").GetValue<Circle>();
@@ -323,11 +342,11 @@ namespace Kalimá {
             var dE = kalm.Item("drawE").GetValue<Circle>();
             var dR = kalm.Item("drawR").GetValue<Circle>();
             var dj = kalm.Item("drawjumpspots").GetValue<Circle>();
-            if (dAA.Active) { Render.Circle.DrawCircle(curposition, Orbwalking.GetRealAutoAttackRange(Player), dAA.Color); }
-            if (Q.IsReady() && dQ.Active) { Render.Circle.DrawCircle(curposition, Q.Range, dQ.Color); }
-            if (W.IsReady() && dW.Active) { Render.Circle.DrawCircle(curposition, W.Range, dW.Color); }
-            if (E.IsReady() && dE.Active) { Render.Circle.DrawCircle(curposition, E.Range, dE.Color); }
-            if (R.IsReady() && dR.Active) { Render.Circle.DrawCircle(curposition, R.Range, dR.Color); }
+            if (dAA.Active) {DraWing.drawcircle("drawAA", 0.0333, curposition, Orbwalking.GetRealAutoAttackRange(Player), dAA.Color);}
+            if (Q.IsReady() && dQ.Active) { DraWing.drawcircle("drawQ", 0.0333, curposition, Q.Range, dQ.Color); }
+            if (W.IsReady() && dW.Active) { DraWing.drawcircle("drawW", 0.0333, curposition, W.Range, dW.Color); }
+            if (E.IsReady() && dE.Active) { DraWing.drawcircle("drawE", 0.0333, curposition, E.Range, dE.Color); }
+            if (R.IsReady() && dR.Active) { DraWing.drawcircle("drawR", 0.0333, curposition, R.Range, dR.Color); }
             if (kalm.Item("drawsoulmatelink", true).GetValue<Boolean>()) {
                 draw_soulmate_link();
             }
@@ -336,8 +355,7 @@ namespace Kalimá {
             }
             
             if (kalm.Item("drawcoords", true).GetValue<Boolean>()) {
-                Drawing.DrawText(Drawing.Width * 0.45f, Drawing.Height * 0.70f, Color.GreenYellow, "Coords:" + Player.Position);
-                DraWing.drawtext("draw_coords", 5, Drawing.Width * 45f, Drawing.Height * 30f, Color.Blue, "hello there");
+                DraWing.drawtext("drawcoords", 0.0333, Drawing.Width * 0.45f, Drawing.Height * 0.70f, Color.GreenYellow, "Coords:" + Player.Position);
             }
             if (soulmate != null) {
                 if (soulmate.ChampionName == "Blitzcrank" || soulmate.ChampionName == "Skarner" && R.IsReady()) {
@@ -347,21 +365,16 @@ namespace Kalimá {
                             //do both checks since we might have both in a game...
                             var doult = 0;
                             if (kalimenu.Item("target" + enemy.ChampionName).GetValue<bool>() && enemy.Health > 200 && isbalista(enemy) != null) {
-                                if (enemy.HasBuff("rocketgrab2") && soulmate.ChampionName == "Blitzcrank") {
-                                    Notifications.AddNotification(new Notification("Doing Balista on: " + enemy.CharData.BaseSkinName, 4000).SetTextColor(Color.FromArgb(255, 0, 0)));
-                                    doult = 1;
-                                }
-                                if (enemy.HasBuff("skarnerimpale") && soulmate.ChampionName == "Skarner") {
-                                    doult = 1;
-                                }
+                                if (enemy.HasBuff("rocketgrab2") && soulmate.ChampionName == "Blitzcrank") {doult = 1;}
+                                if (enemy.HasBuff("skarnerimpale") && soulmate.ChampionName == "Skarner") {doult = 1;}
                                 if (doult == 1) { R.Cast(); }
                             }
                         }
                         if (kalm.Item("drawminrange", true).GetValue<Boolean>()) {
-                            Render.Circle.DrawCircle(curposition, kalm.Item("balistaminrange", true).GetValue<Slider>().Value, Color.Chartreuse);
+                            DraWing.drawcircle("drawminrange", 0.0333, curposition, kalm.Item("balistaminrange", true).GetValue<Slider>().Value, Color.Chartreuse);
                         }
                         if (kalm.Item("drawmaxrange", true).GetValue<Boolean>()) {
-                            Render.Circle.DrawCircle(curposition, kalm.Item("balistamaxrange", true).GetValue<Slider>().Value, Color.Green);
+                            DraWing.drawcircle("drawmaxrange", 0.0333, curposition, kalm.Item("balistamaxrange", true).GetValue<Slider>().Value, Color.Green);
                         }
                         if (kalm.Item("lineformat", true).GetValue<Boolean>()) {
                             var lineformat = HeroManager.Enemies.FindAll(a => a.ServerPosition.Distance(Player.ServerPosition) <= kalm.Item("balistenemyamaxrange", true).GetValue<Slider>().Value && !a.IsDead && a.IsVisible);
@@ -369,12 +382,12 @@ namespace Kalimá {
                             if (lineformat != null && isbalista(soulmate) != null) {
                                 foreach (var x in lineformat) {
                                     if (isbalista(x) != null) {
-                                        Drawing.DrawLine(x.HPBarPosition.X, x.HPBarPosition.Y, soulmate.HPBarPosition.X, soulmate.HPBarPosition.Y, 2.0f, Color.Red);
+                                        DraWing.drawline("drawtargetline" + x.CharData.BaseSkinName, 0.0333, x.HPBarPosition.X, x.HPBarPosition.Y, soulmate.HPBarPosition.X, soulmate.HPBarPosition.Y, 2.0f, Color.Red);
                                         foundvalidtarget++;
                                     }
                                 }
                                 if (foundvalidtarget > 0) {
-                                    Drawing.DrawLine(soulmate.HPBarPosition.X, soulmate.HPBarPosition.Y, Player.HPBarPosition.X, Player.HPBarPosition.Y, 2.0f, Color.Red);
+                                    DraWing.drawline("drawsoulmate", 0.0333, soulmate.HPBarPosition.X, soulmate.HPBarPosition.Y, Player.HPBarPosition.X, Player.HPBarPosition.Y, 2.0f, Color.Red);
                                 }
                             }
                         }
@@ -414,6 +427,7 @@ namespace Kalimá {
             return null;
         }
 
+        //credits to xcsoft for this function
         static List<Obj_AI_Base> Q_GetCollisionMinions(Obj_AI_Hero source, Vector3 targetposition) {
             var input = new PredictionInput {
                 Unit = source,
@@ -577,8 +591,8 @@ namespace Kalimá {
             const float circleRange = 75f;
             foreach (var pos in jumpPos) {
                 if (Player.Distance(pos.Key) <= 500f || Player.Distance(pos.Value) <= 500f) {
-                    Render.Circle.DrawCircle(pos.Key, circleRange, System.Drawing.Color.Blue);
-                    Render.Circle.DrawCircle(pos.Value, circleRange, System.Drawing.Color.Blue);
+                    DraWing.drawcircle("jump" + pos, 0.0333, pos.Key, circleRange, Color.Blue);
+                    DraWing.drawcircle("jump" + pos, 0.0333, pos.Value, circleRange, Color.Blue);
                 }
             }
         }
@@ -590,28 +604,29 @@ namespace Kalimá {
             }
 
             if (soulmate.IsDead) {
-                Drawing.DrawText(Drawing.Width * 0.45f, Drawing.Height * 0.82f, Color.Red, "Connection Signal with " + soulmate.ChampionName + ": None");
+                DraWing.drawtext("drawlink", 0.0333, Drawing.Width * 0.45f, Drawing.Height * 0.82f, Color.Red, "Connection Signal with " + soulmate.ChampionName + ": None");
             } else {
                 var soulrange = Player.Distance(soulmate.Position);
                 if (soulrange > soulmateRange) {
-                    Drawing.DrawText(Drawing.Width * 0.45f, Drawing.Height * 0.82f, Color.Red, "Connection Signal with " + soulmate.ChampionName + ": None");
+                    DraWing.drawtext("drawlink", 0.0333, Drawing.Width * 0.45f, Drawing.Height * 0.82f, Color.Red, "Connection Signal with " + soulmate.ChampionName + ": None");
                 } else if (soulrange > 800) {
-                    Drawing.DrawText(Drawing.Width * 0.45f, Drawing.Height * 0.82f, Color.Gold, "Connection Signal with " + soulmate.ChampionName + ": Low");
-                } else { Drawing.DrawText(Drawing.Width * 0.45f, Drawing.Height * 0.82f, Color.GreenYellow, "Connection Signal with " + soulmate.ChampionName + ": Good"); }
+                    DraWing.drawtext("drawlink", 0.0333, Drawing.Width * 0.45f, Drawing.Height * 0.82f, Color.Gold, "Connection Signal with " + soulmate.ChampionName + ": Low");
+                } else {
+                    DraWing.drawtext("drawlink", 0.0333, Drawing.Width * 0.45f, Drawing.Height * 0.82f, Color.GreenYellow, "Connection Signal with " + soulmate.ChampionName + ": Good");
+                }
             }
         }
 
         static void ShowjumpsandFlee() {
             if (!Q.IsReady()) { return; }
-
-            Drawing.DrawText(Drawing.Width * 0.45f, Drawing.Height * 0.10f, Color.GreenYellow, "Wall Jump Active");
+            DraWing.drawtext("jumpactive", 0.0333, Drawing.Width * 0.45f, Drawing.Height * 0.10f, Color.GreenYellow, "Wall Jump Active");
             var XXX = (Vector3)canjump();
             if (XXX != null) {
-                Drawing.DrawText(Drawing.Width * 0.45f, Drawing.Height * 0.50f, Color.GreenYellow, "could jump here");
+                DraWing.drawtext("couldjump", 0.0333, Drawing.Width * 0.45f, Drawing.Height * 0.50f, Color.GreenYellow, "could jump here");
                 Q.Cast(XXX);
                 Orbwalking.Orbwalk(null, XXX, 90f, 0f, false, false);
             } else {
-                Drawing.DrawText(Drawing.Width * 0.45f, Drawing.Height * 0.50f, Color.GreenYellow, "can't jump here");
+                DraWing.drawtext("couldjump", 0.0333, Drawing.Width * 0.45f, Drawing.Height * 0.50f, Color.GreenYellow, "can't jump here");
             }
 
             foreach (var pos in jumpPos) {
@@ -664,7 +679,7 @@ namespace Kalimá {
                 Vector3 wallPositionOpposite = (Vector3)VectorHelper.GetFirstWallPoint((Vector3)wallCheck, currentPosition, 5);
                 //check if the walking path is big enough to be worth a jump..if not then just skip to the next loop
                 if (Player.GetPath(wallPositionOpposite).ToList().To2D().PathLength() - Player.Distance(wallPositionOpposite) < 230) {
-                    Drawing.DrawText(Drawing.Width * 0.45f, Drawing.Height * 0.30f, Color.GreenYellow, "not worth a jump...");
+                    DraWing.drawtext("couldjump", 0.0333, Drawing.Width * 0.45f, Drawing.Height * 0.50f, Color.GreenYellow, "not worth a jump...");
                     continue;
                 }
 
@@ -692,45 +707,87 @@ namespace Kalimá {
 
             var pos1007 = new Vector3(6616f, 11674f, 53.83324f);
             var pos1008 = new Vector3(6462f, 12004f, 56.4768f);
-            jumpPos.Add(pos1007, pos1008); //DraWing("drawblitztext","text",5000,25f,30f,Color.Blue,"here lies the shit");
+            jumpPos.Add(pos1007, pos1008);
         }
 
     }
+
+    //drawing class for timed drawings (pls jodus add this feature in l# xD)
     internal class DraWing {
         private static readonly Obj_AI_Hero Player = ObjectManager.Player;
-        private static void drawinit() {
-            Drawing.OnDraw += Drawing_OnDraw;
-        }
-
-        private static void Drawing_OnDraw(EventArgs args) {
+        public static void Drawing_OnDraw(EventArgs args) {
             var timerightnow = Game.ClockTime;
-            Drawing.DrawText(Drawing.Width * 0.45f, Drawing.Height * 0.30f, Color.GreenYellow, "here goes the ondraw func");
-            foreach (var x in drawtextlist) {
-                if (Game.ClockTime - x.Addedon > x.Timer) {
-                    drawtextlist.Remove(new Drawtext() { Name = x.Name, Timer = x.Timer, Addedon = x.Addedon, Format = x.Format, X = x.X, Color = x.Color, Y = x.Y });
-                } else {
+            //remove old items from lists
+            drawtextlist.RemoveAll(x => timerightnow - x.Addedon > x.Timer);
+            drawcirclelist.RemoveAll(x => timerightnow - x.Addedon > x.Timer);
+            drawlinelist.RemoveAll(x => timerightnow - x.Addedon > x.Timer);
+            //draw everything...
+            if (drawtextlist.Count > 0) {
+                foreach (var x in drawtextlist) {
                     Drawing.DrawText(x.X, x.Y, x.Color, x.Format);
+                }            
+            }
+            if (drawcirclelist.Count > 0) {
+                foreach (var x in drawcirclelist) {
+                    Render.Circle.DrawCircle(x.Position, x.Radius, x.Color);
+                }
+            }
+            if (drawlinelist.Count > 0) {
+                foreach (var x in drawlinelist) {
+                    Drawing.DrawLine(x.X, x.Y, x.X2,x.Y2, x.Thickness,x.Color);
                 }
             }
         }
+
+        private static List<Drawline> drawlinelist = new List<Drawline>();
+        private class Drawline {
+            public string Name { get; set; }
+            public double Timer { get; set; }
+            public float Addedon { get; set; }
+            //here goes the function stuff...
+            public float X { get; set; }
+            public float Y { get; set; }
+            public float X2 { get; set; }
+            public float Y2 { get; set; }
+            public float Thickness { get; set; }
+            public Color Color { get; set; }
+        }
+        public static void drawline(string name, double timer, float x, float y, float x2, float y2, float thickness, Color color) {
+            drawlinelist.RemoveAll(xXx => xXx.Name == name);
+            drawlinelist.Add(new Drawline() { Name = name, Timer = timer, Addedon = Game.ClockTime, X = x, Y = y,X2 = x2,Y2 = y2,Thickness = thickness,Color = color});
+            return;
+        }
+
+        private static List<Drawcircle> drawcirclelist = new List<Drawcircle>();
+        private class Drawcircle {
+            public string Name { get; set; }
+            public double Timer { get; set; }
+            public float Addedon { get; set; }
+            public Vector3 Position { get; set; }
+            public float Radius { get; set; }
+            public Color Color { get; set; }
+        }
+        public static void drawcircle(string name, double timer, Vector3 position, float radius, Color color) {
+            drawcirclelist.RemoveAll(x => x.Name == name);
+            drawcirclelist.Add(new Drawcircle() { Name = name, Timer = timer, Addedon = Game.ClockTime, Position = position, Radius = radius, Color = color});
+            return;
+        }
+        
         private static List<Drawtext> drawtextlist = new List<Drawtext>();
         private class Drawtext {
             public string Name {get; set; }
-            public int Timer { get; set; }
+            public double Timer { get; set; }
             public float Addedon { get; set; }
             public float X { get; set; }
             public float Y { get; set; }
             public Color Color { get; set; }
             public string Format { get; set; }
         }
-        public static void drawtext(string circle_name, int timer, float X, float Y, Color color, string format) {
-            if (drawtextlist.Find(x => x.Name == circle_name) != null) {
-                drawtextlist.Remove(new Drawtext() { Name = circle_name });            
-            }
-            drawtextlist.Add(new Drawtext() { Name = circle_name, Timer = timer, Addedon = Game.ClockTime,X = X, Y = Y, Color = color, Format = format});
+        public static void drawtext(string name, double timer, float X, float Y, Color color, string format) {
+            drawtextlist.RemoveAll(x => x.Name == name);
+            drawtextlist.Add(new Drawtext() { Name = name, Timer = timer, Addedon = Game.ClockTime, X = X, Y = Y, Color = color, Format = format });
             return;
         }
-        //drawinit();
     }
 
     internal class VectorHelper {
