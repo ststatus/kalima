@@ -1,4 +1,5 @@
-﻿using LeagueSharp;
+﻿#region REFS
+using LeagueSharp;
 using LeagueSharp.Common;
 using SharpDX;
 using SharpDX.Direct3D9;
@@ -9,9 +10,10 @@ using System.Text;
 using System.Threading.Tasks;
 using Color = System.Drawing.Color;
 using Collision = LeagueSharp.Common.Collision;
-
+#endregion
 namespace Kalimá {
     internal class Kalista {
+        #region GAME LOAD
         static Dictionary<Vector3, Vector3> jumpPos;
         static readonly Obj_AI_Hero Player = ObjectManager.Player;
         static Orbwalking.Orbwalker Orbwalker;
@@ -43,7 +45,9 @@ namespace Kalimá {
         }
 
         static void Main(string[] args) { CustomEvents.Game.OnGameLoad += Game_OnGameLoad; }
+        #endregion
 
+        #region MENU
         static void menuload() {
             kalimenu = new Menu("Kalimá", Player.ChampionName, true);
             Menu OrbwalkerMenu = kalimenu.AddSubMenu(new Menu("Orbwalker", "Orbwalker"));
@@ -124,7 +128,9 @@ namespace Kalimá {
 
             kalimenu.AddToMainMenu();
         }
+        #endregion
 
+        #region EVENT GAME ON UPDATE
         static float? onupdatetimers;//limit onupdate to 5 times per second
         static void Game_OnUpdate(EventArgs args) {
             if (Player.IsDead || Player.IsRecalling()) { return; }
@@ -167,6 +173,9 @@ namespace Kalimá {
             }
             onupdatetimers = Game.ClockTime;
         }
+        #endregion
+
+        #region HARASS
         static void harass() {
             var lqmana = kalm.Item("harassmanaminQ", true).GetValue<Slider>().Value;
             var lemana = kalm.Item("harassmanaminE", true).GetValue<Slider>().Value;
@@ -230,6 +239,38 @@ namespace Kalimá {
             }
         }
 
+        //credits to xcsoft for this function
+        static List<Obj_AI_Base> Q_GetCollisionMinions(Obj_AI_Hero source, Vector3 targetposition) {
+            var input = new PredictionInput {
+                Unit = source,
+                Radius = Q.Width,
+                Delay = Q.Delay,
+                Speed = Q.Speed,
+            };
+
+            input.CollisionObjects[0] = CollisionableObjects.Minions;
+
+            return Collision.GetCollision(new List<Vector3> { targetposition }, input).OrderBy(obj => obj.Distance(source, false)).ToList();
+        }
+
+        static void Killsteal() {
+            foreach (var enemy in ObjectManager.Get<Obj_AI_Hero>().Where(h => Q.CanCast(h) || E.CanCast(h))) {
+                var edmg = GetEDamage(enemy);
+                var enemyhealth = enemy.Health;
+                var enemyregen = enemy.HPRegenRate / 2;
+                if (((enemyhealth + enemyregen) <= edmg) && E.CanCast(enemy)) { E.Cast(); return; }
+                if (Q.GetPrediction(enemy).Hitchance >= HitChance.VeryHigh && Q.CanCast(enemy)) {
+                    var qdamage = Player.GetSpellDamage(enemy, SpellSlot.Q);
+                    if ((qdamage + edmg) >= (enemyhealth + enemyregen)) {
+                        Q.Cast(enemy);
+                        return;
+                    }
+                }
+            }
+        }
+        #endregion
+
+        #region JUNGLE CLEAR
         static void Jungleclear() {
             var mymana = Manapercent;
             if (mymana < kalm.Item("jungleclearmana", true).GetValue<Slider>().Value) { return; }
@@ -250,6 +291,9 @@ namespace Kalimá {
                 if (E.CanCast(jungleinside) && (jungleinside.Health + (jungleinside.HPRegenRate / 2)) <= GetEDamage(jungleinside)) { E.Cast(); }
             }
         }
+        #endregion
+
+        #region LANECLEAR
 
         static void laneclear() {
             var lqmana = kalm.Item("laneclearmanaminQ", true).GetValue<Slider>().Value;
@@ -280,6 +324,19 @@ namespace Kalimá {
             }
         }
 
+        static void Event_OnNonKillableMinion(AttackableUnit minion) {
+            if (!kalm.Item("laneclearE", true).GetValue<Boolean>() || !E.IsReady()) { return; }
+            if (Manapercent < kalm.Item("laneclearmanaminE", true).GetValue<Slider>().Value) { return; }
+
+            if (kalm.Item("laneclearlasthit", true).GetValue<Boolean>()) {
+                if (E.CanCast((Obj_AI_Base)minion) && minion.Health <= GetEDamage((Obj_AI_Base)minion) - 10) {
+                    E.Cast();
+                }
+            }
+        }
+#endregion
+
+        #region MISC EVENTS
         static void Event_OnProcessSpellCast(Obj_AI_Base sender, GameObjectProcessSpellCastEventArgs args) {
             //3 if's for no checks later...
             if (soulmate == null || Player.IsDead || !R.IsReady()) { return; }
@@ -292,17 +349,6 @@ namespace Kalimá {
             if (sender.IsEnemy && sender.Distance(soulmate.ServerPosition) < 1500f) {
                 if (soulmate.HealthPercent <= kalm.Item("savesoulboundat").GetValue<Slider>().Value) {
                     R.Cast();
-                }
-            }
-        }
-
-        static void Event_OnNonKillableMinion(AttackableUnit minion) {
-            if (!kalm.Item("laneclearE", true).GetValue<Boolean>() || !E.IsReady()) { return; }
-            if (Manapercent < kalm.Item("laneclearmanaminE", true).GetValue<Slider>().Value) { return; }
-
-            if (kalm.Item("laneclearlasthit", true).GetValue<Boolean>()) {
-                if (E.CanCast((Obj_AI_Base)minion) && minion.Health <= GetEDamage((Obj_AI_Base)minion)-10) {
-                    E.Cast();
                 }
             }
         }
@@ -325,6 +371,9 @@ namespace Kalimá {
                 }
             }
         }
+        #endregion
+
+        #region EVENT ON DRAW
         static float? ondrawtimers;//limit ondraw to 30 fps (force DraWing class to draw by frame)
         static void Drawing_OnDraw(EventArgs args) {
             if (Player.IsDead) { return; }
@@ -427,36 +476,29 @@ namespace Kalimá {
             return null;
         }
 
-        //credits to xcsoft for this function
-        static List<Obj_AI_Base> Q_GetCollisionMinions(Obj_AI_Hero source, Vector3 targetposition) {
-            var input = new PredictionInput {
-                Unit = source,
-                Radius = Q.Width,
-                Delay = Q.Delay,
-                Speed = Q.Speed,
-            };
+        static void draw_soulmate_link() {
+            if (Player.IsDead || W.Level == 0) { return; }
+            if (soulmate == null) {
+                soulmate = HeroManager.Allies.Find(a => !a.IsMe && a.Buffs.Any(b => b.Name.Contains("kalistacoopstrikeally")));
+                if (soulmate == null) { return; }
+            }
 
-            input.CollisionObjects[0] = CollisionableObjects.Minions;
-
-            return Collision.GetCollision(new List<Vector3> { targetposition }, input).OrderBy(obj => obj.Distance(source, false)).ToList();
-        }
-
-        static void Killsteal() {
-            foreach (var enemy in ObjectManager.Get<Obj_AI_Hero>().Where(h => Q.CanCast(h) || E.CanCast(h))) {
-                var edmg = GetEDamage(enemy);
-                var enemyhealth = enemy.Health;
-                var enemyregen = enemy.HPRegenRate / 2;
-                if (((enemyhealth + enemyregen) <= edmg) && E.CanCast(enemy)) { E.Cast(); return; }
-                if (Q.GetPrediction(enemy).Hitchance >= HitChance.VeryHigh && Q.CanCast(enemy)) {
-                    var qdamage = Player.GetSpellDamage(enemy, SpellSlot.Q);
-                    if ((qdamage + edmg) >= (enemyhealth + enemyregen)) {
-                        Q.Cast(enemy);
-                        return;
-                    }
+            if (soulmate.IsDead) {
+                DraWing.drawtext("drawlink", 0.0333, Drawing.Width * 0.45f, Drawing.Height * 0.82f, Color.Red, "Connection Signal with " + soulmate.ChampionName + ": None");
+            } else {
+                var soulrange = Player.Distance(soulmate.Position);
+                if (soulrange > soulmateRange) {
+                    DraWing.drawtext("drawlink", 0.0333, Drawing.Width * 0.45f, Drawing.Height * 0.82f, Color.Red, "Connection Signal with " + soulmate.ChampionName + ": None");
+                } else if (soulrange > 800) {
+                    DraWing.drawtext("drawlink", 0.0333, Drawing.Width * 0.45f, Drawing.Height * 0.82f, Color.Gold, "Connection Signal with " + soulmate.ChampionName + ": Low");
+                } else {
+                    DraWing.drawtext("drawlink", 0.0333, Drawing.Width * 0.45f, Drawing.Height * 0.82f, Color.GreenYellow, "Connection Signal with " + soulmate.ChampionName + ": Good");
                 }
             }
         }
+        #endregion
 
+        #region MISC FUNCTIONS
         static float GetEDamage(Obj_AI_Base target) {
             var stacks = target.GetBuffCount("kalistaexpungemarker");
             if (stacks == 0 || !E.IsReady()) { return 1; }
@@ -527,7 +569,9 @@ namespace Kalimá {
             }
             return (float)totalDamage;
         }
+        #endregion
 
+        #region AUTO W (Sentinel stuff)
         static readonly List<mysentinels> _mysentinels = new List<mysentinels>();
         internal class mysentinels {
             public string Name;
@@ -587,32 +631,15 @@ namespace Kalimá {
             }
         }
 
+        #endregion
+
+        #region WALLJUMP
         static void draw_jump_spots() {
             const float circleRange = 75f;
             foreach (var pos in jumpPos) {
                 if (Player.Distance(pos.Key) <= 500f || Player.Distance(pos.Value) <= 500f) {
                     DraWing.drawcircle("jump" + pos, 0.0333, pos.Key, circleRange, Color.Blue);
                     DraWing.drawcircle("jump" + pos, 0.0333, pos.Value, circleRange, Color.Blue);
-                }
-            }
-        }
-        static void draw_soulmate_link() {
-            if (Player.IsDead || W.Level == 0) { return; }
-            if (soulmate == null) {
-                soulmate = HeroManager.Allies.Find(a => !a.IsMe && a.Buffs.Any(b => b.Name.Contains("kalistacoopstrikeally")));
-                if (soulmate == null) { return; }
-            }
-
-            if (soulmate.IsDead) {
-                DraWing.drawtext("drawlink", 0.0333, Drawing.Width * 0.45f, Drawing.Height * 0.82f, Color.Red, "Connection Signal with " + soulmate.ChampionName + ": None");
-            } else {
-                var soulrange = Player.Distance(soulmate.Position);
-                if (soulrange > soulmateRange) {
-                    DraWing.drawtext("drawlink", 0.0333, Drawing.Width * 0.45f, Drawing.Height * 0.82f, Color.Red, "Connection Signal with " + soulmate.ChampionName + ": None");
-                } else if (soulrange > 800) {
-                    DraWing.drawtext("drawlink", 0.0333, Drawing.Width * 0.45f, Drawing.Height * 0.82f, Color.Gold, "Connection Signal with " + soulmate.ChampionName + ": Low");
-                } else {
-                    DraWing.drawtext("drawlink", 0.0333, Drawing.Width * 0.45f, Drawing.Height * 0.82f, Color.GreenYellow, "Connection Signal with " + soulmate.ChampionName + ": Good");
                 }
             }
         }
@@ -638,9 +665,7 @@ namespace Kalimá {
                     }
                 } else { return; }
             }
-
         }
-
 
         static Vector3? canjump() {
             var wallCheck = VectorHelper.GetFirstWallPoint(Player.Position, Player.Position);
@@ -712,6 +737,9 @@ namespace Kalimá {
 
     }
 
+        #endregion
+
+    #region MY DRAWING CLASS FOR TIMED CIRCLES/TEXT/LINE
     //drawing class for timed drawings (pls jodus add this feature in l# xD)
     internal class DraWing {
         private static readonly Obj_AI_Hero Player = ObjectManager.Player;
@@ -789,7 +817,9 @@ namespace Kalimá {
             return;
         }
     }
+    #endregion
 
+    #region VECTOR HELPER FROM STACKOVERFLOW
     internal class VectorHelper {
         private static readonly Obj_AI_Hero player = ObjectManager.Player;
 
@@ -868,4 +898,5 @@ namespace Kalimá {
             return objects.Where(o => VectorHelper.IsLyingInCone(o.ServerPosition.To2D(), apexPoint, player.ServerPosition.To2D(), Math.PI)).OrderBy(o => o.Distance(apexPoint, true)).ToList();
         }
     }
+#endregion
 }
