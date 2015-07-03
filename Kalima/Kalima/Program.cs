@@ -48,6 +48,7 @@ namespace Kalimá {
         #endregion
 
         #region MENU
+
         static void menuload() {
             kalimenu = new Menu("Kalimá", Player.ChampionName, true);
             Menu OrbwalkerMenu = kalimenu.AddSubMenu(new Menu("Orbwalker", "Orbwalker"));
@@ -73,6 +74,7 @@ namespace Kalimá {
             JungM.AddItem(new MenuItem("jungleclearE", "Use E", true).SetValue(true));
             JungM.AddItem(new MenuItem("jungleclearmana", "E requires % mana", true).SetValue(new Slider(20, 0, 100)));
             JungM.AddItem(new MenuItem("bardragsteal", "Steal dragon/baron", true).SetValue(true));
+            JungM.AddItem(new MenuItem("jungleclearQbd", "Use Q on dragon/baron?", true).SetValue(true));
             JungM.AddItem(new MenuItem("jungleActive", "Active", true).SetValue(true));
 
             LaneM.AddItem(new MenuItem("laneclearQ", "Use Q", true).SetValue(true));
@@ -81,6 +83,7 @@ namespace Kalimá {
             LaneM.AddItem(new MenuItem("laneclearE", "Use E", true).SetValue(true));
             LaneM.AddItem(new MenuItem("laneclearEcast", "E cast if minions >= X", true).SetValue(new Slider(3, 0, 10)));
             LaneM.AddItem(new MenuItem("laneclearmanaminE", "E requires % mana", true).SetValue(new Slider(30, 0, 100)));
+            LaneM.AddItem(new MenuItem("laneclearbigminionsE", "E when it can kill siege/super minions", true).SetValue(true));
             LaneM.AddItem(new MenuItem("laneclearlasthit", "E when non-killable by AA", true).SetValue(true));
 
             MiscM.AddItem(new MenuItem("AutoLevel", "Auto Level Skills", true).SetValue(true));
@@ -176,6 +179,7 @@ namespace Kalimá {
         #endregion
 
         #region HARASS
+
         static void harass() {
             var lqmana = kalm.Item("harassmanaminQ", true).GetValue<Slider>().Value;
             var lemana = kalm.Item("harassmanaminE", true).GetValue<Slider>().Value;
@@ -215,10 +219,10 @@ namespace Kalimá {
 
             if (kalm.Item("harassE", true).GetValue<Slider>().Value >= 1 && kalm.Item("harassEoutOfRange", true).GetValue<Boolean>()) {
                 //use R.range instead of E.range so it can harass ".outofrange" as long as E is castable
-                var Minions = MinionManager.GetMinions(Player.ServerPosition, R.Range, MinionTypes.All, MinionTeam.NotAlly).FindAll(x => (x.Health + (x.HPRegenRate / 2)) < GetEDamage(x)-10 && E.IsReady() && E.CanCast(x));
+                var Minions = MinionManager.GetMinions(Player.ServerPosition, R.Range, MinionTypes.All, MinionTeam.NotAlly).FindAll(x => (x.Health + (x.HPRegenRate / 2)) < GetEDamage(x) && ECanCast(x));
                 if (Minions != null && Minions.Count() >= kalm.Item("harassE", true).GetValue<Slider>().Value) {
-                    var enemy = HeroManager.Enemies.Find(x => E.CanCast(x));
-                    if (enemy != null) { E.Cast(); }
+                    var enemy = HeroManager.Enemies.Find(x => ECanCast(x));
+                    if (enemy != null) { ECast(); }
                 }
             }
         }
@@ -254,12 +258,13 @@ namespace Kalimá {
         }
 
         static void Killsteal() {
-            foreach (var enemy in ObjectManager.Get<Obj_AI_Hero>().Where(h => Q.CanCast(h) || E.CanCast(h))) {
+            foreach (var enemy in ObjectManager.Get<Obj_AI_Hero>().Where(h => Q.CanCast(h) || ECanCast(h))) {
+                if (hasundyingbuff(enemy)) { continue; }
                 var edmg = GetEDamage(enemy);
                 var enemyhealth = enemy.Health;
                 var enemyregen = enemy.HPRegenRate / 2;
-                if (((enemyhealth + enemyregen) <= edmg) && E.CanCast(enemy)) { E.Cast(); return; }
-                if (Q.GetPrediction(enemy).Hitchance >= HitChance.VeryHigh && Q.CanCast(enemy)) {
+                if (((enemyhealth + enemyregen) <= edmg) && ECanCast(enemy) && !hasundyingbuff(enemy)) { ECast(); return; }
+                if (Q.GetPrediction(enemy).Hitchance >= HitChance.High && Q.CanCast(enemy)) {
                     var qdamage = Player.GetSpellDamage(enemy, SpellSlot.Q);
                     if ((qdamage + edmg) >= (enemyhealth + enemyregen)) {
                         Q.Cast(enemy);
@@ -271,6 +276,7 @@ namespace Kalimá {
         #endregion
 
         #region JUNGLE CLEAR
+
         static void Jungleclear() {
             var mymana = Manapercent;
             if (mymana < kalm.Item("jungleclearmana", true).GetValue<Slider>().Value) { return; }
@@ -278,9 +284,9 @@ namespace Kalimá {
             //baron / dragon
             if (kalm.Item("bardragsteal", true).GetValue<Boolean>()) {
                 var junglehugeE = MinionManager.GetMinions(E.Range, MinionTypes.All, MinionTeam.Enemy, MinionOrderTypes.MaxHealth).FirstOrDefault(x => x.Health + (x.HPRegenRate / 2) <= GetEDamage(x) && (x.CharData.BaseSkinName.ToLower().Contains("dragon") || x.CharData.BaseSkinName.ToLower().Contains("baron")));
-                if (E.CanCast(junglehugeE)) { E.Cast(); }
+                if (junglehugeE != null && ECanCast(junglehugeE)) { ECast(); }//jungleclearQbd
                 var junglehugeQ = MinionManager.GetMinions(Q.Range, MinionTypes.All, MinionTeam.Enemy, MinionOrderTypes.MaxHealth).FirstOrDefault(x => x.Health + (x.HPRegenRate / 2) <= Q.GetDamage(x) && (x.CharData.BaseSkinName.ToLower().Contains("dragon") || x.CharData.BaseSkinName.ToLower().Contains("baron")));
-                if (Q.CanCast(junglehugeQ)) { Q.Cast(junglehugeQ); }
+                if (junglehugeQ != null && Q.CanCast(junglehugeQ)) { Q.Cast(junglehugeQ); }
             }
             //other minions in jungle...
             var jungleinside = MinionManager.GetMinions(E.Range, MinionTypes.All, MinionTeam.Neutral, MinionOrderTypes.MaxHealth).FirstOrDefault();
@@ -288,7 +294,7 @@ namespace Kalimá {
                 if (Q.CanCast(jungleinside)) { Q.Cast(jungleinside); }
             }
             if (kalm.Item("jungleclearE", true).GetValue<Boolean>()) {
-                if (E.CanCast(jungleinside) && (jungleinside.Health + (jungleinside.HPRegenRate / 2)) <= GetEDamage(jungleinside)) { E.Cast(); }
+                if (ECanCast(jungleinside) && (jungleinside.Health + (jungleinside.HPRegenRate / 2)) <= GetEDamage(jungleinside)) { ECast(); }
             }
         }
         #endregion
@@ -296,6 +302,7 @@ namespace Kalimá {
         #region LANECLEAR
 
         static void laneclear() {
+            if (Player.Spellbook.IsCastingSpell || (!E.IsReady() && !Q.IsReady())) { return; }
             var lqmana = kalm.Item("laneclearmanaminQ", true).GetValue<Slider>().Value;
             var lemana = kalm.Item("laneclearmanaminE", true).GetValue<Slider>().Value;
             var minmana = lqmana;
@@ -303,7 +310,7 @@ namespace Kalimá {
             if (lemana < minmana) { minmana = lemana; }
             if (mymana < minmana) { return; }
 
-            var Minions = MinionManager.GetMinions(Player.ServerPosition, E.Range, MinionTypes.All, MinionTeam.Enemy).FindAll(x => (x.Health < Q.GetDamage(x) && Q.CanCast(x)) || (x.Health < GetEDamage(x) && E.CanCast(x)));
+            var Minions = MinionManager.GetMinions(Player.ServerPosition, E.Range, MinionTypes.All, MinionTeam.Enemy).FindAll(x => (x.Health < Q.GetDamage(x) && Q.CanCast(x)) || (x.Health < GetEDamage(x) && ECanCast(x)));
             if (Minions.Count <= 0) { return; }
 
             if (kalm.Item("laneclearQ", true).GetValue<Boolean>() && Q.IsReady() && mymana >= lqmana && !Player.IsDashing()) {
@@ -317,9 +324,31 @@ namespace Kalimá {
             }
 
             if (kalm.Item("laneclearE", true).GetValue<Boolean>() && E.IsReady() && mymana >= lemana && !Player.IsDashing()) {
-                var minionsE = Minions.Where(x => (x.Health + (x.HPRegenRate / 2)) < GetEDamage(x) && E.CanCast(x));
+                var minionsE = Minions.Where(x => (x.Health + (x.HPRegenRate / 2)) < GetEDamage(x) && ECanCast(x));
                 if (minionsE != null && minionsE.Count() >= kalm.Item("laneclearEcast", true).GetValue<Slider>().Value) {
-                    E.Cast();
+                    ECast();
+                } else if (minionsE != null && kalm.Item("laneclearbigminionsE", true).GetValue<Boolean>()) { //kill siege/super minions when it can E
+                    var bigminion = minionsE.Find(x => x.CharData.BaseSkinName.ToLower().Contains("siege") || x.CharData.BaseSkinName.ToLower().Contains("super"));
+                    if (bigminion != null) { ECast(); }
+                }
+            }
+        }
+        #endregion
+
+        #region MISC EVENTS
+
+        static void Event_OnProcessSpellCast(Obj_AI_Base sender, GameObjectProcessSpellCastEventArgs args) {
+            //3 if's for no checks later...
+            if (soulmate == null || Player.IsDead || !R.IsReady() || Player.Spellbook.IsCastingSpell) { return; }
+            if (!kalm.Item("savesoulbound", true).GetValue<Boolean>()) { return; }
+            if (sender.IsMe) {
+                if (args.SData.Name == "KalistaExpungeWrapper") {
+                    Orbwalking.ResetAutoAttackTimer(); //dont reset because it does double E's and puts E on cooldown
+                }
+            }
+            if (sender.IsEnemy && sender.Distance(soulmate.ServerPosition) < 1500f) {
+                if (soulmate.HealthPercent <= kalm.Item("savesoulboundat").GetValue<Slider>().Value) {
+                    R.Cast();
                 }
             }
         }
@@ -327,28 +356,9 @@ namespace Kalimá {
         static void Event_OnNonKillableMinion(AttackableUnit minion) {
             if (!kalm.Item("laneclearE", true).GetValue<Boolean>() || !E.IsReady()) { return; }
             if (Manapercent < kalm.Item("laneclearmanaminE", true).GetValue<Slider>().Value) { return; }
-
             if (kalm.Item("laneclearlasthit", true).GetValue<Boolean>()) {
-                if (E.CanCast((Obj_AI_Base)minion) && minion.Health <= GetEDamage((Obj_AI_Base)minion) - 10) {
-                    E.Cast();
-                }
-            }
-        }
-#endregion
-
-        #region MISC EVENTS
-        static void Event_OnProcessSpellCast(Obj_AI_Base sender, GameObjectProcessSpellCastEventArgs args) {
-            //3 if's for no checks later...
-            if (soulmate == null || Player.IsDead || !R.IsReady()) { return; }
-            if (!kalm.Item("savesoulbound", true).GetValue<Boolean>()) { return; }
-/*            if (sender.IsMe) {
-                if (args.SData.Name == "KalistaExpungeWrapper") {
-                    Orbwalking.ResetAutoAttackTimer(); //dont reset because it does double E's and puts E on cooldown
-                }
-            }*/
-            if (sender.IsEnemy && sender.Distance(soulmate.ServerPosition) < 1500f) {
-                if (soulmate.HealthPercent <= kalm.Item("savesoulboundat").GetValue<Slider>().Value) {
-                    R.Cast();
+                if (ECanCast((Obj_AI_Minion)minion) && minion.Health <= GetEDamage((Obj_AI_Minion)minion)) {
+                    ECast();
                 }
             }
         }
@@ -358,12 +368,13 @@ namespace Kalimá {
 
         static void Event_OnLevelUp() {
             if (kalm.Item("AutoLevel", true).GetValue<Boolean>()) {
-                DraWing.drawtext("levelupspells", 1, Drawing.Width * 0.45f, Drawing.Height * 0.50f, Color.GreenYellow, "Levelling up Spells");
+                DraWing.drawtext("levelupspells", 3, Drawing.Width * 0.45f, Drawing.Height * 0.90f, Color.PapayaWhip, "Levelling up Spells");
                 if (MyLevel == 0) {
                     Player.Spellbook.LevelUpSpell(SpellSlot.W);
                     MyLevel++;
                 } else {
                     MyLevel++;
+                    if (MyLevel == 1) { Player.Spellbook.LevelUpSpell(SpellSlot.Q); }
                     Player.Spellbook.LevelUpSpell(SpellSlot.R);
                     Player.Spellbook.LevelUpSpell(SpellSlot.E);
                     Player.Spellbook.LevelUpSpell(SpellSlot.Q);
@@ -377,6 +388,45 @@ namespace Kalimá {
         static float? ondrawtimers;//limit ondraw to 30 fps (force DraWing class to draw by frame)
         static void Drawing_OnDraw(EventArgs args) {
             if (Player.IsDead) { return; }
+            var curposition = Player.Position;
+
+            if (soulmate != null) {
+                if (soulmate.ChampionName == "Blitzcrank" || soulmate.ChampionName == "Skarner" && R.IsReady()) {
+                    if (kalm.Item("balistaActive", true).GetValue<Boolean>()) {
+                        var enemy = HeroManager.Enemies.Find(a => a.Buffs.Any(b => b.Name.ToLower().Contains("rocketgrab2") || b.Name.ToLower().Contains("skarnerimpale")));
+                        if (enemy != null) {
+                            //do both checks since we might have both in a game...
+                            var doult = 0;
+                            if (kalimenu.Item("target" + enemy.ChampionName).GetValue<bool>() && enemy.Health > 200 && isbalista(enemy)) {
+                                if (enemy.HasBuff("rocketgrab2") && soulmate.ChampionName == "Blitzcrank") { doult = 1; }
+                                if (enemy.HasBuff("skarnerimpale") && soulmate.ChampionName == "Skarner") { doult = 1; }
+                                if (doult == 1) { R.Cast(); }
+                            }
+                        }
+                        if (kalm.Item("drawminrange", true).GetValue<Boolean>()) {
+                            DraWing.drawcircle("drawminrange", 0.0333, curposition, kalm.Item("balistaminrange", true).GetValue<Slider>().Value, Color.Chartreuse);
+                        }
+                        if (kalm.Item("drawmaxrange", true).GetValue<Boolean>()) {
+                            DraWing.drawcircle("drawmaxrange", 0.0333, curposition, kalm.Item("balistamaxrange", true).GetValue<Slider>().Value, Color.Green);
+                        }
+                        if (kalm.Item("lineformat", true).GetValue<Boolean>()) {
+                            var lineformat = HeroManager.Enemies.FindAll(a => a.ServerPosition.Distance(Player.ServerPosition) <= kalm.Item("balistenemyamaxrange", true).GetValue<Slider>().Value && !a.IsDead && a.IsVisible);
+                            var foundvalidtarget = 0;
+                            if (lineformat != null && isbalista(soulmate)) {
+                                foreach (var x in lineformat) {
+                                    if (isbalista(x)) {
+                                        DraWing.drawline("drawtargetline" + x.CharData.BaseSkinName, 0.0333, x.HPBarPosition.X, x.HPBarPosition.Y, soulmate.HPBarPosition.X, soulmate.HPBarPosition.Y, 2.0f, Color.Red);
+                                        foundvalidtarget++;
+                                    }
+                                }
+                                if (foundvalidtarget > 0) {
+                                    DraWing.drawline("drawsoulmate", 0.0333, soulmate.HPBarPosition.X, soulmate.HPBarPosition.Y, Player.HPBarPosition.X, Player.HPBarPosition.Y, 2.0f, Color.Red);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             if (ondrawtimers != null) {
                 if ((Game.ClockTime - ondrawtimers) > 0.0333) {
                     ondrawtimers = null;
@@ -384,7 +434,6 @@ namespace Kalimá {
             }
             ondrawtimers = Game.ClockTime;
 
-            var curposition = Player.Position;
             var dAA = kalm.Item("drawAA").GetValue<Circle>();
             var dQ = kalm.Item("drawQ").GetValue<Circle>();
             var dW = kalm.Item("drawW").GetValue<Circle>();
@@ -406,48 +455,11 @@ namespace Kalimá {
             if (kalm.Item("drawcoords", true).GetValue<Boolean>()) {
                 DraWing.drawtext("drawcoords", 0.0333, Drawing.Width * 0.45f, Drawing.Height * 0.70f, Color.GreenYellow, "Coords:" + Player.Position);
             }
-            if (soulmate != null) {
-                if (soulmate.ChampionName == "Blitzcrank" || soulmate.ChampionName == "Skarner" && R.IsReady()) {
-                    if (kalm.Item("balistaActive", true).GetValue<Boolean>()) {
-                        var enemy = HeroManager.Enemies.Find(a => a.Buffs.Any(b => b.Name.ToLower().Contains("rocketgrab2") || b.Name.ToLower().Contains("skarnerimpale")));
-                        if (enemy != null) {
-                            //do both checks since we might have both in a game...
-                            var doult = 0;
-                            if (kalimenu.Item("target" + enemy.ChampionName).GetValue<bool>() && enemy.Health > 200 && isbalista(enemy) != null) {
-                                if (enemy.HasBuff("rocketgrab2") && soulmate.ChampionName == "Blitzcrank") {doult = 1;}
-                                if (enemy.HasBuff("skarnerimpale") && soulmate.ChampionName == "Skarner") {doult = 1;}
-                                if (doult == 1) { R.Cast(); }
-                            }
-                        }
-                        if (kalm.Item("drawminrange", true).GetValue<Boolean>()) {
-                            DraWing.drawcircle("drawminrange", 0.0333, curposition, kalm.Item("balistaminrange", true).GetValue<Slider>().Value, Color.Chartreuse);
-                        }
-                        if (kalm.Item("drawmaxrange", true).GetValue<Boolean>()) {
-                            DraWing.drawcircle("drawmaxrange", 0.0333, curposition, kalm.Item("balistamaxrange", true).GetValue<Slider>().Value, Color.Green);
-                        }
-                        if (kalm.Item("lineformat", true).GetValue<Boolean>()) {
-                            var lineformat = HeroManager.Enemies.FindAll(a => a.ServerPosition.Distance(Player.ServerPosition) <= kalm.Item("balistenemyamaxrange", true).GetValue<Slider>().Value && !a.IsDead && a.IsVisible);
-                            var foundvalidtarget = 0;
-                            if (lineformat != null && isbalista(soulmate) != null) {
-                                foreach (var x in lineformat) {
-                                    if (isbalista(x) != null) {
-                                        DraWing.drawline("drawtargetline" + x.CharData.BaseSkinName, 0.0333, x.HPBarPosition.X, x.HPBarPosition.Y, soulmate.HPBarPosition.X, soulmate.HPBarPosition.Y, 2.0f, Color.Red);
-                                        foundvalidtarget++;
-                                    }
-                                }
-                                if (foundvalidtarget > 0) {
-                                    DraWing.drawline("drawsoulmate", 0.0333, soulmate.HPBarPosition.X, soulmate.HPBarPosition.Y, Player.HPBarPosition.X, Player.HPBarPosition.Y, 2.0f, Color.Red);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
         }
 
-        static Obj_AI_Hero isbalista(Obj_AI_Hero hero) {
-            if (soulmate == null) { return null; }
-            if (soulmate.IsDead) { return null; }
+        static bool isbalista(Obj_AI_Hero hero) {
+            if (soulmate == null) { return false; }
+            if (soulmate.IsDead) { return false; }
             if (soulmate.CharData.BaseSkinName == "Blitzcrank" || soulmate.CharData.BaseSkinName == "Skarner") {
                 var enemymaxrange = kalm.Item("balistenemyamaxrange", true).GetValue<Slider>().Value;
                 var balistaminrange = kalm.Item("balistaminrange", true).GetValue<Slider>().Value;
@@ -458,22 +470,22 @@ namespace Kalimá {
                     x.Distance(Player.ServerPosition) > balistaminrange &&
                     x.Distance(soulmate.ServerPosition) < balistamaxrange
                     );
-                if (closestenemiestome == null) { return null; }
+                if (closestenemiestome == null) { return false; }
 
                 var mysoul = HeroManager.Allies.Find(x => 
                     x.CharData.BaseSkinName == soulmate.CharData.BaseSkinName && 
                     Player.Distance(x.ServerPosition) > balistaminrange &&
                     Player.Distance(x.ServerPosition) < balistamaxrange && closestenemiestome != null);
-                if (mysoul == null) { return null; }
+                if (mysoul == null) { return false; }
 
                 if (mysoul.CharData.BaseSkinName == hero.CharData.BaseSkinName) {
-                    return hero;
+                    return true;
                 } else {
                     var enemy = closestenemiestome.Find(x => x.CharData.BaseSkinName == hero.CharData.BaseSkinName);
-                    if (enemy != null) { return enemy; }
+                    if (enemy != null) { return true; }
                 }
             }
-            return null;
+            return false;
         }
 
         static void draw_soulmate_link() {
@@ -521,7 +533,7 @@ namespace Kalimá {
                         playertotalad = playertotalad + 4;
                     }
                     //brute force
-                    var brute = Player.Masteries.FirstOrDefault(m => m.Page == MasteryPage.Offense && m.Id == 82);
+                    var brute = Player.Masteries.First(m => m.Page == MasteryPage.Offense && m.Id == 82);
                     if (brute != null && brute.Points >= 1) {
                         switch (brute.Points) {
                             case 1:
@@ -560,7 +572,7 @@ namespace Kalimá {
                         } else { totalDamage = totalDamage * 1.03; }
                     }
                     //executioner
-                    var mastery = Player.Masteries.FirstOrDefault(m => m.Page == MasteryPage.Offense && m.Id == 100);
+                    var mastery = Player.Masteries.Find(m => m.Page == MasteryPage.Offense && m.Id == 100);
                     if (mastery != null && mastery.Points >= 1 &&
                         target.Health / target.MaxHealth <= 0.05d + 0.15d * mastery.Points) {
                         totalDamage = totalDamage * 1.05;
@@ -568,6 +580,43 @@ namespace Kalimá {
                 }
             }
             return (float)totalDamage;
+        }
+        //idea from hellsing
+        static bool hasundyingbuff(Obj_AI_Hero target) {
+            var hasbuff = HeroManager.Enemies.Find(a =>
+                target.CharData.BaseSkinName == a.CharData.BaseSkinName && a.Buffs.Any(b => 
+                    b.Name.ToLower().Contains("undying rage") ||
+                    b.Name.ToLower().Contains("chrono shift") ||
+                    b.Name.ToLower().Contains("judicatorintervention") ||
+                    b.Name.ToLower().Contains("poppyditarget")));
+            if (hasbuff != null) { return true; }
+            return false;
+                    
+        }
+
+        //prevent double E's which put E on cooldown
+        static float? ecasttimer;
+        static void ECast() {
+            if (ecasttimer != null) {
+                if ((Game.ClockTime - ecasttimer) > 0.500) {//wait 500ms before using E again
+                    ecasttimer = null;
+                } else { return; }
+            }
+            ecasttimer = Game.ClockTime;
+            E.Cast();
+        }
+
+        static bool ECanCast(Obj_AI_Base target) {
+            if (!E.IsReady() || !E.CanCast(target)) { return false; }
+            var cancast = false;
+            if (ecasttimer != null) {
+                if ((Game.ClockTime - ecasttimer) > 0.300) {//check with e's timer
+                    ecasttimer = null;
+                    cancast = true;
+                } else { return false; }
+            } else { cancast = true; }
+            if (cancast) { return true; }
+            return false;
         }
         #endregion
 
@@ -734,11 +783,8 @@ namespace Kalimá {
             var pos1008 = new Vector3(6462f, 12004f, 56.4768f);
             jumpPos.Add(pos1007, pos1008);
         }
-
-    }
-
         #endregion
-
+    }
     #region MY DRAWING CLASS FOR TIMED CIRCLES/TEXT/LINE
     //drawing class for timed drawings (pls jodus add this feature in l# xD)
     internal class DraWing {
