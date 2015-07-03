@@ -390,6 +390,31 @@ namespace Kalimá {
             if (Player.IsDead) { return; }
             var curposition = Player.Position;
 
+            if (ondrawtimers != null) {
+                if ((Game.ClockTime - ondrawtimers) > 0.0333) {
+                    ondrawtimers = null;
+                } else { return; }
+            }
+            ondrawtimers = Game.ClockTime;
+
+            var dAA = kalm.Item("drawAA").GetValue<Circle>();
+            var dQ = kalm.Item("drawQ").GetValue<Circle>();
+            var dW = kalm.Item("drawW").GetValue<Circle>();
+            var dE = kalm.Item("drawE").GetValue<Circle>();
+            var dR = kalm.Item("drawR").GetValue<Circle>();
+            var dj = kalm.Item("drawjumpspots").GetValue<Circle>();
+            if (dAA.Active) { DraWing.drawcircle("drawAA", 0.0333, curposition, Orbwalking.GetRealAutoAttackRange(Player), dAA.Color); }
+            if (Q.IsReady() && dQ.Active) { DraWing.drawcircle("drawQ", 0.0333, curposition, Q.Range, dQ.Color); }
+            if (W.IsReady() && dW.Active) { DraWing.drawcircle("drawW", 0.0333, curposition, W.Range, dW.Color); }
+            if (E.IsReady() && dE.Active) { DraWing.drawcircle("drawE", 0.0333, curposition, E.Range, dE.Color); }
+            if (R.IsReady() && dR.Active) { DraWing.drawcircle("drawR", 0.0333, curposition, R.Range, dR.Color); }
+            if (kalm.Item("drawsoulmatelink", true).GetValue<Boolean>()) {
+                draw_soulmate_link();
+            }
+            if (dj.Active) {
+                draw_jump_spots();
+            }
+
             if (soulmate != null) {
                 if (soulmate.ChampionName == "Blitzcrank" || soulmate.ChampionName == "Skarner" && R.IsReady()) {
                     if (kalm.Item("balistaActive", true).GetValue<Boolean>()) {
@@ -426,30 +451,6 @@ namespace Kalimá {
                         }
                     }
                 }
-            }
-            if (ondrawtimers != null) {
-                if ((Game.ClockTime - ondrawtimers) > 0.0333) {
-                    ondrawtimers = null;
-                } else { return; }
-            }
-            ondrawtimers = Game.ClockTime;
-
-            var dAA = kalm.Item("drawAA").GetValue<Circle>();
-            var dQ = kalm.Item("drawQ").GetValue<Circle>();
-            var dW = kalm.Item("drawW").GetValue<Circle>();
-            var dE = kalm.Item("drawE").GetValue<Circle>();
-            var dR = kalm.Item("drawR").GetValue<Circle>();
-            var dj = kalm.Item("drawjumpspots").GetValue<Circle>();
-            if (dAA.Active) { DraWing.drawcircle("drawAA", 0.0333, curposition, Orbwalking.GetRealAutoAttackRange(Player), dAA.Color); }
-            if (Q.IsReady() && dQ.Active) { DraWing.drawcircle("drawQ", 0.0333, curposition, Q.Range, dQ.Color); }
-            if (W.IsReady() && dW.Active) { DraWing.drawcircle("drawW", 0.0333, curposition, W.Range, dW.Color); }
-            if (E.IsReady() && dE.Active) { DraWing.drawcircle("drawE", 0.0333, curposition, E.Range, dE.Color); }
-            if (R.IsReady() && dR.Active) { DraWing.drawcircle("drawR", 0.0333, curposition, R.Range, dR.Color); }
-            if (kalm.Item("drawsoulmatelink", true).GetValue<Boolean>()) {
-                draw_soulmate_link();
-            }
-            if (dj.Active) {
-                draw_jump_spots();
             }
 
             if (kalm.Item("drawcoords", true).GetValue<Boolean>()) {
