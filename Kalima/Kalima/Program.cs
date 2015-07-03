@@ -161,7 +161,7 @@ namespace Kalimá {
             if (kalm.Item("fleeKey").GetValue<KeyBind>().Active) {
                 ShowjumpsandFlee();
             }
-           
+
             switch (Orbwalker.ActiveMode) {
                 case Orbwalking.OrbwalkingMode.LaneClear:
                     laneclear();
@@ -172,7 +172,7 @@ namespace Kalimá {
                     break;
             }
             if (Player.Level >= MyLevel) {
-                Event_OnLevelUp();            
+                Event_OnLevelUp();
             }
             onupdatetimers = Game.ClockTime;
         }
@@ -189,7 +189,7 @@ namespace Kalimá {
             if (mymana < minmana) { return; }//quick check to return if less than minmana...
 
             if (kalm.Item("harassQ", true).GetValue<Boolean>() && mymana > lqmana && Q.IsReady(1) && !Player.IsDashing()) {
-                var enemies = HeroManager.Enemies.FindAll(h => 
+                var enemies = HeroManager.Enemies.FindAll(h =>
                     h.IsValidTarget(Q.Range) && Q.CanCast(h) &&
                     ((Q.GetPrediction(h).Hitchance >= gethitchanceQ) ||
                     (Q.GetPrediction(h).Hitchance == HitChance.Collision)));
@@ -314,7 +314,7 @@ namespace Kalimá {
             if (Minions.Count <= 0) { return; }
 
             if (kalm.Item("laneclearQ", true).GetValue<Boolean>() && Q.IsReady() && mymana >= lqmana && !Player.IsDashing()) {
-                var minionsQ = Minions.Find(x => 
+                var minionsQ = Minions.Find(x =>
                     x.Health < Q.GetDamage(x) &&
                     Q_GetCollisionMinions(Player, Player.ServerPosition.Extend(x.ServerPosition, Q.Range)).Count >= kalm.Item("laneclearQcast", true).GetValue<Slider>().Value &&
                     Q_GetCollisionMinions(Player, Player.ServerPosition.Extend(x.ServerPosition, Q.Range)).All(xx => xx.Health < Q.GetDamage(xx)));
@@ -440,7 +440,7 @@ namespace Kalimá {
             var dE = kalm.Item("drawE").GetValue<Circle>();
             var dR = kalm.Item("drawR").GetValue<Circle>();
             var dj = kalm.Item("drawjumpspots").GetValue<Circle>();
-            if (dAA.Active) {DraWing.drawcircle("drawAA", 0.0333, curposition, Orbwalking.GetRealAutoAttackRange(Player), dAA.Color);}
+            if (dAA.Active) { DraWing.drawcircle("drawAA", 0.0333, curposition, Orbwalking.GetRealAutoAttackRange(Player), dAA.Color); }
             if (Q.IsReady() && dQ.Active) { DraWing.drawcircle("drawQ", 0.0333, curposition, Q.Range, dQ.Color); }
             if (W.IsReady() && dW.Active) { DraWing.drawcircle("drawW", 0.0333, curposition, W.Range, dW.Color); }
             if (E.IsReady() && dE.Active) { DraWing.drawcircle("drawE", 0.0333, curposition, E.Range, dE.Color); }
@@ -451,7 +451,7 @@ namespace Kalimá {
             if (dj.Active) {
                 draw_jump_spots();
             }
-            
+
             if (kalm.Item("drawcoords", true).GetValue<Boolean>()) {
                 DraWing.drawtext("drawcoords", 0.0333, Drawing.Width * 0.45f, Drawing.Height * 0.70f, Color.GreenYellow, "Coords:" + Player.Position);
             }
@@ -465,15 +465,15 @@ namespace Kalimá {
                 var balistaminrange = kalm.Item("balistaminrange", true).GetValue<Slider>().Value;
                 var balistamaxrange = kalm.Item("balistamaxrange", true).GetValue<Slider>().Value;
 
-                var closestenemiestome = HeroManager.Enemies.FindAll(x => 
+                var closestenemiestome = HeroManager.Enemies.FindAll(x =>
                     x.Distance(Player.ServerPosition) < enemymaxrange && !x.IsDead &&
                     x.Distance(Player.ServerPosition) > balistaminrange &&
                     x.Distance(soulmate.ServerPosition) < balistamaxrange
                     );
                 if (closestenemiestome == null) { return false; }
 
-                var mysoul = HeroManager.Allies.Find(x => 
-                    x.CharData.BaseSkinName == soulmate.CharData.BaseSkinName && 
+                var mysoul = HeroManager.Allies.Find(x =>
+                    x.CharData.BaseSkinName == soulmate.CharData.BaseSkinName &&
                     Player.Distance(x.ServerPosition) > balistaminrange &&
                     Player.Distance(x.ServerPosition) < balistamaxrange && closestenemiestome != null);
                 if (mysoul == null) { return false; }
@@ -584,14 +584,14 @@ namespace Kalimá {
         //idea from hellsing
         static bool hasundyingbuff(Obj_AI_Hero target) {
             var hasbuff = HeroManager.Enemies.Find(a =>
-                target.CharData.BaseSkinName == a.CharData.BaseSkinName && a.Buffs.Any(b => 
+                target.CharData.BaseSkinName == a.CharData.BaseSkinName && a.Buffs.Any(b =>
                     b.Name.ToLower().Contains("undying rage") ||
                     b.Name.ToLower().Contains("chrono shift") ||
                     b.Name.ToLower().Contains("judicatorintervention") ||
                     b.Name.ToLower().Contains("poppyditarget")));
             if (hasbuff != null) { return true; }
             return false;
-                    
+
         }
 
         //prevent double E's which put E on cooldown
@@ -648,7 +648,7 @@ namespace Kalimá {
             _mysentinels.Add(new mysentinels("Red Camp Red Buff", (Vector3)SummonersRift.Jungle.Red_RedBuff));
             _mysentinels.Add(new mysentinels("Dragon", (Vector3)SummonersRift.River.Dragon));
             _mysentinels.Add(new mysentinels("Baron", (Vector3)SummonersRift.River.Baron));
-            _mysentinels.Add(new mysentinels("Mid Bot River", new Vector3(8370f, 6176f,-71.2406f)));
+            _mysentinels.Add(new mysentinels("Mid Bot River", new Vector3(8370f, 6176f, -71.2406f)));
             //add river mid bush here...
             //_mysentinels.Add(new mysentinels("RiverTop", (Vector3)SummonersRift.Bushes.);
         }
@@ -674,7 +674,7 @@ namespace Kalimá {
                         autoWtimers = Game.ClockTime;
                         W.Cast(destinations.Position);
                         Notifications.AddNotification(new Notification("sending bug to:" + destinations.Name, 5000).SetTextColor(Color.FromArgb(255, 0, 0)));
-                        return;                    
+                        return;
                     }
                 }
             }
@@ -774,7 +774,7 @@ namespace Kalimá {
             var pos1003 = new Vector3(7824f, 5998f, 51.4058f);
             var pos1004 = new Vector3(8010f, 6228f, -71.2406f);
             jumpPos.Add(pos1003, pos1004);
-            
+
             var pos1005 = new Vector3(9830f, 3040f, 60.5358f);
             var pos1006 = new Vector3(9774f, 2760f, 49.22291f);
             jumpPos.Add(pos1005, pos1006);
@@ -799,7 +799,7 @@ namespace Kalimá {
             if (drawtextlist.Count > 0) {
                 foreach (var x in drawtextlist) {
                     Drawing.DrawText(x.X, x.Y, x.Color, x.Format);
-                }            
+                }
             }
             if (drawcirclelist.Count > 0) {
                 foreach (var x in drawcirclelist) {
@@ -808,7 +808,7 @@ namespace Kalimá {
             }
             if (drawlinelist.Count > 0) {
                 foreach (var x in drawlinelist) {
-                    Drawing.DrawLine(x.X, x.Y, x.X2,x.Y2, x.Thickness,x.Color);
+                    Drawing.DrawLine(x.X, x.Y, x.X2, x.Y2, x.Thickness, x.Color);
                 }
             }
         }
@@ -828,7 +828,7 @@ namespace Kalimá {
         }
         public static void drawline(string name, double timer, float x, float y, float x2, float y2, float thickness, Color color) {
             drawlinelist.RemoveAll(xXx => xXx.Name == name);
-            drawlinelist.Add(new Drawline() { Name = name, Timer = timer, Addedon = Game.ClockTime, X = x, Y = y,X2 = x2,Y2 = y2,Thickness = thickness,Color = color});
+            drawlinelist.Add(new Drawline() { Name = name, Timer = timer, Addedon = Game.ClockTime, X = x, Y = y, X2 = x2, Y2 = y2, Thickness = thickness, Color = color });
             return;
         }
 
@@ -843,13 +843,13 @@ namespace Kalimá {
         }
         public static void drawcircle(string name, double timer, Vector3 position, float radius, Color color) {
             drawcirclelist.RemoveAll(x => x.Name == name);
-            drawcirclelist.Add(new Drawcircle() { Name = name, Timer = timer, Addedon = Game.ClockTime, Position = position, Radius = radius, Color = color});
+            drawcirclelist.Add(new Drawcircle() { Name = name, Timer = timer, Addedon = Game.ClockTime, Position = position, Radius = radius, Color = color });
             return;
         }
-        
+
         private static List<Drawtext> drawtextlist = new List<Drawtext>();
         private class Drawtext {
-            public string Name {get; set; }
+            public string Name { get; set; }
             public double Timer { get; set; }
             public float Addedon { get; set; }
             public float X { get; set; }
@@ -944,5 +944,5 @@ namespace Kalimá {
             return objects.Where(o => VectorHelper.IsLyingInCone(o.ServerPosition.To2D(), apexPoint, player.ServerPosition.To2D(), Math.PI)).OrderBy(o => o.Distance(apexPoint, true)).ToList();
         }
     }
-#endregion
+    #endregion
 }

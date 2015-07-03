@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace Kalimá.Properties {
+namespace Kalima.Properties {
     
     
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
