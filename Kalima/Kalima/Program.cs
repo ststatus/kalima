@@ -97,13 +97,13 @@ namespace Kalimá {
 
             DrawM.AddItem(new MenuItem("drawAA", "Real Attack Range").SetValue(new Circle(true, Color.FromArgb(0, 230, 255))));
             DrawM.AddItem(new MenuItem("drawjumpspots", "Jump Spots").SetValue(new Circle(true, Color.FromArgb(0, 230, 255))));
-            DrawM.AddItem(new MenuItem("drawQ", "Q Range").SetValue(new Circle(true, Color.FromArgb(0, 230, 255))));
-            DrawM.AddItem(new MenuItem("drawW", "W Range").SetValue(new Circle(true, Color.FromArgb(0, 230, 255))));
-            DrawM.AddItem(new MenuItem("drawE", "E Range").SetValue(new Circle(true, Color.FromArgb(0, 230, 255))));
-            DrawM.AddItem(new MenuItem("drawR", "R Range").SetValue(new Circle(true, Color.FromArgb(0, 230, 255))));
+            DrawM.AddItem(new MenuItem("drawQ", "Q Range").SetValue(new Circle(false, Color.FromArgb(0, 230, 255))));
+            DrawM.AddItem(new MenuItem("drawW", "W Range").SetValue(new Circle(false, Color.FromArgb(0, 230, 255))));
+            DrawM.AddItem(new MenuItem("drawE", "E Range").SetValue(new Circle(false, Color.FromArgb(0, 230, 255))));
+            DrawM.AddItem(new MenuItem("drawR", "R Range").SetValue(new Circle(false, Color.FromArgb(0, 230, 255))));
             //marksman...
             DrawM.AddItem(new MenuItem("drawsoulmatelink", "Draw Link Signal", true).SetValue(true));
-            DrawM.AddItem(new MenuItem("drawcoords", "Draw Map Coords", true).SetValue(true));
+            DrawM.AddItem(new MenuItem("drawcoords", "Draw Map Coords", true).SetValue(false));
             var blitzskarneringame = HeroManager.Allies.Find(x => x.CharData.BaseSkinName == "Blitzcrank" || x.CharData.BaseSkinName == "Skarner");
             if (blitzskarneringame != null) {
                 //check if its blitz or skarner the ally...
