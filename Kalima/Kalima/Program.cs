@@ -391,7 +391,7 @@ namespace Kalimá {
             var curposition = Player.Position;
 
             if (ondrawtimers != null) {
-                if ((Game.ClockTime - ondrawtimers) > 0.0333) {
+                if ((Game.ClockTime - ondrawtimers) > 0.016) {
                     ondrawtimers = null;
                 } else { return; }
             }
