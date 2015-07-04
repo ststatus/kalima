@@ -81,7 +81,8 @@ namespace Kalimá {
             LaneM.AddItem(new MenuItem("laneclearQcast", "Q cast if minions >= X", true).SetValue(new Slider(2, 2, 10)));
             LaneM.AddItem(new MenuItem("laneclearmanaminQ", "Q requires % mana", true).SetValue(new Slider(65, 0, 100)));
             LaneM.AddItem(new MenuItem("laneclearE", "Use E", true).SetValue(true));
-            LaneM.AddItem(new MenuItem("laneclearEcast", "E cast if minions >= X", true).SetValue(new Slider(3, 0, 10)));
+            LaneM.AddItem(new MenuItem("laneclearEcast", "E cast if minions >= X (min value)", true).SetValue(new Slider(1, 0, 10)));
+            LaneM.AddItem(new MenuItem("laneclearEcastincr", "Increase number by Level (decimal):", true).SetValue(new Slider(2, 0, 4)));
             LaneM.AddItem(new MenuItem("laneclearmanaminE", "E requires % mana", true).SetValue(new Slider(30, 0, 100)));
             LaneM.AddItem(new MenuItem("laneclearbigminionsE", "E when it can kill siege/super minions", true).SetValue(true));
             LaneM.AddItem(new MenuItem("laneclearlasthit", "E when non-killable by AA", true).SetValue(true));
@@ -95,8 +96,8 @@ namespace Kalimá {
             MiscM.AddItem(new MenuItem("fleeKey", "Flee Toggle").SetValue(new KeyBind("T".ToCharArray()[0], KeyBindType.Press)));
 
 
-            DrawM.AddItem(new MenuItem("drawAA", "Real Attack Range").SetValue(new Circle(true, Color.FromArgb(0, 230, 255))));
-            DrawM.AddItem(new MenuItem("drawjumpspots", "Jump Spots").SetValue(new Circle(true, Color.FromArgb(0, 230, 255))));
+            DrawM.AddItem(new MenuItem("drawAA", "Real Attack Range").SetValue(new Circle(false, Color.FromArgb(0, 230, 255))));
+            DrawM.AddItem(new MenuItem("drawjumpspots", "Jump Spots").SetValue(new Circle(false, Color.FromArgb(0, 230, 255))));
             DrawM.AddItem(new MenuItem("drawQ", "Q Range").SetValue(new Circle(false, Color.FromArgb(0, 230, 255))));
             DrawM.AddItem(new MenuItem("drawW", "W Range").SetValue(new Circle(false, Color.FromArgb(0, 230, 255))));
             DrawM.AddItem(new MenuItem("drawE", "E Range").SetValue(new Circle(false, Color.FromArgb(0, 230, 255))));
@@ -325,7 +326,9 @@ namespace Kalimá {
 
             if (kalm.Item("laneclearE", true).GetValue<Boolean>() && E.IsReady() && mymana >= lemana && !Player.IsDashing()) {
                 var minionsE = Minions.Where(x => (x.Health + (x.HPRegenRate / 2)) < GetEDamage(x) && ECanCast(x));
-                if (minionsE != null && minionsE.Count() >= kalm.Item("laneclearEcast", true).GetValue<Slider>().Value) {
+                double laneclearE = kalm.Item("laneclearEcast", true).GetValue<Slider>().Value;
+                double incrementE = kalm.Item("laneclearEcastincr", true).GetValue<Slider>().Value;
+                if (minionsE != null && minionsE.Count() >= Math.Round(laneclearE + (Player.Level * (incrementE / 10)))) {
                     ECast();
                 } else if (minionsE != null && kalm.Item("laneclearbigminionsE", true).GetValue<Boolean>()) { //kill siege/super minions when it can E
                     var bigminion = minionsE.Find(x => x.CharData.BaseSkinName.ToLower().Contains("siege") || x.CharData.BaseSkinName.ToLower().Contains("super"));
@@ -403,11 +406,11 @@ namespace Kalimá {
             var dE = kalm.Item("drawE").GetValue<Circle>();
             var dR = kalm.Item("drawR").GetValue<Circle>();
             var dj = kalm.Item("drawjumpspots").GetValue<Circle>();
-            if (dAA.Active) { DraWing.drawcircle("drawAA", 0.0333, curposition, Orbwalking.GetRealAutoAttackRange(Player), dAA.Color); }
-            if (Q.IsReady() && dQ.Active) { DraWing.drawcircle("drawQ", 0.0333, curposition, Q.Range, dQ.Color); }
-            if (W.IsReady() && dW.Active) { DraWing.drawcircle("drawW", 0.0333, curposition, W.Range, dW.Color); }
-            if (E.IsReady() && dE.Active) { DraWing.drawcircle("drawE", 0.0333, curposition, E.Range, dE.Color); }
-            if (R.IsReady() && dR.Active) { DraWing.drawcircle("drawR", 0.0333, curposition, R.Range, dR.Color); }
+            if (dAA.Active) { DraWing.drawcircle("drawAA", 0.016, curposition, Orbwalking.GetRealAutoAttackRange(Player), dAA.Color); }
+            if (Q.IsReady() && dQ.Active) { DraWing.drawcircle("drawQ", 0.016, curposition, Q.Range, dQ.Color); }
+            if (W.IsReady() && dW.Active) { DraWing.drawcircle("drawW", 0.016, curposition, W.Range, dW.Color); }
+            if (E.IsReady() && dE.Active) { DraWing.drawcircle("drawE", 0.016, curposition, E.Range, dE.Color); }
+            if (R.IsReady() && dR.Active) { DraWing.drawcircle("drawR", 0.016, curposition, R.Range, dR.Color); }
             if (kalm.Item("drawsoulmatelink", true).GetValue<Boolean>()) {
                 draw_soulmate_link();
             }
@@ -429,10 +432,10 @@ namespace Kalimá {
                             }
                         }
                         if (kalm.Item("drawminrange", true).GetValue<Boolean>()) {
-                            DraWing.drawcircle("drawminrange", 0.0333, curposition, kalm.Item("balistaminrange", true).GetValue<Slider>().Value, Color.Chartreuse);
+                            DraWing.drawcircle("drawminrange", 0.016, curposition, kalm.Item("balistaminrange", true).GetValue<Slider>().Value, Color.Chartreuse);
                         }
                         if (kalm.Item("drawmaxrange", true).GetValue<Boolean>()) {
-                            DraWing.drawcircle("drawmaxrange", 0.0333, curposition, kalm.Item("balistamaxrange", true).GetValue<Slider>().Value, Color.Green);
+                            DraWing.drawcircle("drawmaxrange", 0.016, curposition, kalm.Item("balistamaxrange", true).GetValue<Slider>().Value, Color.Green);
                         }
                         if (kalm.Item("lineformat", true).GetValue<Boolean>()) {
                             var lineformat = HeroManager.Enemies.FindAll(a => a.ServerPosition.Distance(Player.ServerPosition) <= kalm.Item("balistenemyamaxrange", true).GetValue<Slider>().Value && !a.IsDead && a.IsVisible);
@@ -445,7 +448,7 @@ namespace Kalimá {
                                     }
                                 }
                                 if (foundvalidtarget > 0) {
-                                    DraWing.drawline("drawsoulmate", 0.0333, soulmate.HPBarPosition.X, soulmate.HPBarPosition.Y, Player.HPBarPosition.X, Player.HPBarPosition.Y, 2.0f, Color.Red);
+                                    DraWing.drawline("drawsoulmate", 0.016, soulmate.HPBarPosition.X, soulmate.HPBarPosition.Y, Player.HPBarPosition.X, Player.HPBarPosition.Y, 2.0f, Color.Red);
                                 }
                             }
                         }
