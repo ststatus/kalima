@@ -96,7 +96,7 @@ namespace Kalimá {
             MiscM.AddItem(new MenuItem("fleeKey", "Flee Toggle").SetValue(new KeyBind("T".ToCharArray()[0], KeyBindType.Press)));
             Menu TimersM = MiscM.AddSubMenu(new Menu("Timer Limits", "Timer Limits"));
             TimersM.AddItem(new MenuItem("onupdateT", "OnUpdate Timer (max times per second)", true).SetValue(new Slider(10, 0, 100)));
-            TimersM.AddItem(new MenuItem("ondrawT", "OnDraw Timer (max times per second)", true).SetValue(new Slider(60, 0, 500)));
+            TimersM.AddItem(new MenuItem("ondrawT", "OnDraw Timer (max times per second)", true).SetValue(new Slider(30, 1, 500)));
 
 
             DrawM.AddItem(new MenuItem("drawAA", "Real Attack Range").SetValue(new Circle(false, Color.FromArgb(0, 230, 255))));
