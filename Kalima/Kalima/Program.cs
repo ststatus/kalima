@@ -83,7 +83,7 @@ namespace Kalimá {
             LaneM.AddItem(new MenuItem("laneclearE", "Use E", true).SetValue(true));
             LaneM.AddItem(new MenuItem("laneclearEcast", "E cast if minions >= X (min value)", true).SetValue(new Slider(1, 0, 10)));
             LaneM.AddItem(new MenuItem("laneclearEcastincr", "Increase number by Level (decimal):", true).SetValue(new Slider(2, 0, 4)));
-            LaneM.AddItem(new MenuItem("laneclearEminhealth", "E req minion % health to prevent E cooldown", true).SetValue(new Slider(6, 1, 50)));
+            LaneM.AddItem(new MenuItem("laneclearEminhealth", "E req minion % health to prevent E cooldown", true).SetValue(new Slider(10, 1, 50)));
             LaneM.AddItem(new MenuItem("laneclearmanaminE", "E requires % mana", true).SetValue(new Slider(30, 0, 100)));
             LaneM.AddItem(new MenuItem("laneclearbigminionsE", "E when it can kill siege/super minions", true).SetValue(true));
             LaneM.AddItem(new MenuItem("laneclearlasthit", "E when non-killable by AA", true).SetValue(true));
@@ -363,11 +363,12 @@ namespace Kalimá {
         }
 
         static void Event_OnNonKillableMinion(AttackableUnit minion) {
-            if (!kalm.Item("laneclearE", true).GetValue<Boolean>() || !E.IsReady()) { return; }
+            var minionX = (Obj_AI_Minion)minion;
+            if (!kalm.Item("laneclearE", true).GetValue<Boolean>() || !E.IsReady() || !ECanCast(minionX)) { return; }
             if (Manapercent < kalm.Item("laneclearmanaminE", true).GetValue<Slider>().Value) { return; }
             if (kalm.Item("laneclearlasthit", true).GetValue<Boolean>()) {
                 var minhealth = kalm.Item("laneclearEminhealth", true).GetValue<Slider>().Value;
-                if (ECanCast((Obj_AI_Minion)minion) && minion.Health <= GetEDamage((Obj_AI_Minion)minion) && minion.HealthPercent >= minhealth) {
+                if (minionX.Health <= GetEDamage(minionX) && minionX.HealthPercent >= minhealth) {
                     ECast();
                 }
             }
