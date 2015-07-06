@@ -83,6 +83,7 @@ namespace Kalimá {
             LaneM.AddItem(new MenuItem("laneclearE", "Use E", true).SetValue(true));
             LaneM.AddItem(new MenuItem("laneclearEcast", "E cast if minions >= X (min value)", true).SetValue(new Slider(1, 0, 10)));
             LaneM.AddItem(new MenuItem("laneclearEcastincr", "Increase number by Level (decimal):", true).SetValue(new Slider(2, 0, 4)));
+            LaneM.AddItem(new MenuItem("laneclearEminhealth", "E req minion % health to prevent E cooldown", true).SetValue(new Slider(6, 1, 50)));
             LaneM.AddItem(new MenuItem("laneclearmanaminE", "E requires % mana", true).SetValue(new Slider(30, 0, 100)));
             LaneM.AddItem(new MenuItem("laneclearbigminionsE", "E when it can kill siege/super minions", true).SetValue(true));
             LaneM.AddItem(new MenuItem("laneclearlasthit", "E when non-killable by AA", true).SetValue(true));
@@ -95,7 +96,7 @@ namespace Kalimá {
             MiscM.AddItem(new MenuItem("savesoulboundat", "Save when health < %", true).SetValue(new Slider(25, 0, 100)));
             MiscM.AddItem(new MenuItem("fleeKey", "Flee Toggle").SetValue(new KeyBind("T".ToCharArray()[0], KeyBindType.Press)));
             Menu TimersM = MiscM.AddSubMenu(new Menu("Timer Limits", "Timer Limits"));
-            TimersM.AddItem(new MenuItem("onupdateT", "OnUpdate Timer (max times per second)", true).SetValue(new Slider(10, 1, 100)));
+            TimersM.AddItem(new MenuItem("onupdateT", "OnUpdate Timer (max times per second)", true).SetValue(new Slider(30, 1, 100)));
             TimersM.AddItem(new MenuItem("ondrawT", "OnDraw Timer (max times per second)", true).SetValue(new Slider(30, 1, 500)));
 
 
@@ -222,8 +223,9 @@ namespace Kalimá {
             if (mymana < lemana || !E.IsReady()) { return; }
 
             if (kalm.Item("harassE", true).GetValue<Slider>().Value >= 1 && kalm.Item("harassEoutOfRange", true).GetValue<Boolean>()) {
+                var minhealth = kalm.Item("laneclearEminhealth", true).GetValue<Slider>().Value;//readability/future usage
                 //use R.range instead of E.range so it can harass ".outofrange" as long as E is castable
-                var Minions = MinionManager.GetMinions(Player.ServerPosition, R.Range, MinionTypes.All, MinionTeam.NotAlly).FindAll(x => (x.Health + (x.HPRegenRate / 2)) < GetEDamage(x) && ECanCast(x));
+                var Minions = MinionManager.GetMinions(Player.ServerPosition, R.Range, MinionTypes.All, MinionTeam.NotAlly).FindAll(x => (x.Health + (x.HPRegenRate / 2)) < GetEDamage(x) && ECanCast(x) && x.HealthPercent >= minhealth);
                 if (Minions != null && Minions.Count() >= kalm.Item("harassE", true).GetValue<Slider>().Value) {
                     var enemy = HeroManager.Enemies.Find(x => ECanCast(x));
                     if (enemy != null) { ECast(); }
@@ -328,7 +330,8 @@ namespace Kalimá {
             }
 
             if (kalm.Item("laneclearE", true).GetValue<Boolean>() && E.IsReady() && mymana >= lemana && !Player.IsDashing()) {
-                var minionsE = Minions.Where(x => (x.Health + (x.HPRegenRate / 2)) < GetEDamage(x) && ECanCast(x));
+                var minhealth = kalm.Item("laneclearEminhealth", true).GetValue<Slider>().Value;
+                var minionsE = Minions.Where(x => (x.Health + (x.HPRegenRate / 2)) < GetEDamage(x) && ECanCast(x) && x.HealthPercent >= minhealth);
                 double laneclearE = kalm.Item("laneclearEcast", true).GetValue<Slider>().Value;
                 double incrementE = kalm.Item("laneclearEcastincr", true).GetValue<Slider>().Value;
                 if (minionsE != null && minionsE.Count() >= Math.Round(laneclearE + (Player.Level * (incrementE / 10)))) {
@@ -363,7 +366,8 @@ namespace Kalimá {
             if (!kalm.Item("laneclearE", true).GetValue<Boolean>() || !E.IsReady()) { return; }
             if (Manapercent < kalm.Item("laneclearmanaminE", true).GetValue<Slider>().Value) { return; }
             if (kalm.Item("laneclearlasthit", true).GetValue<Boolean>()) {
-                if (ECanCast((Obj_AI_Minion)minion) && minion.Health <= GetEDamage((Obj_AI_Minion)minion)) {
+                var minhealth = kalm.Item("laneclearEminhealth", true).GetValue<Slider>().Value;
+                if (ECanCast((Obj_AI_Minion)minion) && minion.Health <= GetEDamage((Obj_AI_Minion)minion) && minion.HealthPercent >= minhealth) {
                     ECast();
                 }
             }
@@ -425,6 +429,7 @@ namespace Kalimá {
                 if (soulmate.ChampionName == "Blitzcrank" || soulmate.ChampionName == "Skarner" && R.IsReady()) {
                     if (kalm.Item("balistaActive", true).GetValue<Boolean>()) {
                         var enemy = HeroManager.Enemies.Find(a => a.Buffs.Any(b => b.Name.ToLower().Contains("rocketgrab2") || b.Name.ToLower().Contains("skarnerimpale")));
+                        //balista stuff...
                         if (enemy != null) {
                             //do both checks since we might have both in a game...
                             var doult = 0;
@@ -441,19 +446,17 @@ namespace Kalimá {
                             DraWing.drawcircle("drawmaxrange", 1, curposition, kalm.Item("balistamaxrange", true).GetValue<Slider>().Value, Color.Green);
                         }
                         if (kalm.Item("lineformat", true).GetValue<Boolean>()) {
-                            double linemaxt;
-                            if (ondrawmenutimer > 0.200) { linemaxt = 0.200; } else { linemaxt = ondrawmenutimer; }
                             var lineformat = HeroManager.Enemies.FindAll(a => a.ServerPosition.Distance(Player.ServerPosition) <= kalm.Item("balistenemyamaxrange", true).GetValue<Slider>().Value && !a.IsDead && a.IsVisible);
                             var foundvalidtarget = 0;
                             if (lineformat != null && isbalista(soulmate)) {
                                 foreach (var x in lineformat) {
                                     if (isbalista(x)) {
-                                        DraWing.drawline("drawtargetline" + x.CharData.BaseSkinName, linemaxt, x.HPBarPosition.X, x.HPBarPosition.Y, soulmate.HPBarPosition.X, soulmate.HPBarPosition.Y, 2.0f, Color.Red);
+                                        DraWing.drawline("drawtargetline" + x.CharData.BaseSkinName, ondrawmenutimer, x.HPBarPosition.X, x.HPBarPosition.Y, soulmate.HPBarPosition.X, soulmate.HPBarPosition.Y, 2.0f, Color.Red);
                                         foundvalidtarget++;
                                     }
                                 }
                                 if (foundvalidtarget > 0) {
-                                    DraWing.drawline("drawsoulmate", linemaxt, soulmate.HPBarPosition.X, soulmate.HPBarPosition.Y, Player.HPBarPosition.X, Player.HPBarPosition.Y, 2.0f, Color.Red);
+                                    DraWing.drawline("drawsoulmate", ondrawmenutimer, soulmate.HPBarPosition.X, soulmate.HPBarPosition.Y, Player.HPBarPosition.X, Player.HPBarPosition.Y, 2.0f, Color.Red);
                                 }
                             }
                         }
@@ -505,15 +508,15 @@ namespace Kalimá {
             }
 
             if (soulmate.IsDead) {
-                DraWing.drawtext("drawlink", 0.02, Drawing.Width * 0.45f, Drawing.Height * 0.82f, Color.Red, "Connection Signal with " + soulmate.ChampionName + ": None");
+                DraWing.drawtext("drawlink", 1, Drawing.Width * 0.45f, Drawing.Height * 0.82f, Color.Red, "Connection Signal with " + soulmate.ChampionName + ": None");
             } else {
                 var soulrange = Player.Distance(soulmate.Position);
                 if (soulrange > soulmateRange) {
-                    DraWing.drawtext("drawlink", 0.02, Drawing.Width * 0.45f, Drawing.Height * 0.82f, Color.Red, "Connection Signal with " + soulmate.ChampionName + ": None");
+                    DraWing.drawtext("drawlink", 1, Drawing.Width * 0.45f, Drawing.Height * 0.82f, Color.Red, "Connection Signal with " + soulmate.ChampionName + ": None");
                 } else if (soulrange > 800) {
-                    DraWing.drawtext("drawlink", 0.02, Drawing.Width * 0.45f, Drawing.Height * 0.82f, Color.Gold, "Connection Signal with " + soulmate.ChampionName + ": Low");
+                    DraWing.drawtext("drawlink", 1, Drawing.Width * 0.45f, Drawing.Height * 0.82f, Color.Gold, "Connection Signal with " + soulmate.ChampionName + ": Low");
                 } else {
-                    DraWing.drawtext("drawlink", 0.02, Drawing.Width * 0.45f, Drawing.Height * 0.82f, Color.GreenYellow, "Connection Signal with " + soulmate.ChampionName + ": Good");
+                    DraWing.drawtext("drawlink", 1, Drawing.Width * 0.45f, Drawing.Height * 0.82f, Color.GreenYellow, "Connection Signal with " + soulmate.ChampionName + ": Good");
                 }
             }
         }
@@ -600,7 +603,6 @@ namespace Kalimá {
                     b.Name.ToLower().Contains("poppyditarget")));
             if (hasbuff != null) { return true; }
             return false;
-
         }
 
         //prevent double E's which put E on cooldown
