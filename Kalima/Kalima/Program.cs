@@ -94,6 +94,9 @@ namespace Kalimá {
             MiscM.AddItem(new MenuItem("savesoulbound", "Save Soulbound (With R)", true).SetValue(true));
             MiscM.AddItem(new MenuItem("savesoulboundat", "Save when health < %", true).SetValue(new Slider(25, 0, 100)));
             MiscM.AddItem(new MenuItem("fleeKey", "Flee Toggle").SetValue(new KeyBind("T".ToCharArray()[0], KeyBindType.Press)));
+            Menu TimersM = MiscM.AddSubMenu(new Menu("Timer Limits", "Timer Limits"));
+            TimersM.AddItem(new MenuItem("onupdateT", "OnUpdate Timer (max times per second)", true).SetValue(new Slider(10, 0, 100)));
+            TimersM.AddItem(new MenuItem("ondrawT", "OnDraw Timer (max times per second)", true).SetValue(new Slider(60, 0, 500)));
 
 
             DrawM.AddItem(new MenuItem("drawAA", "Real Attack Range").SetValue(new Circle(false, Color.FromArgb(0, 230, 255))));
@@ -135,12 +138,12 @@ namespace Kalimá {
         #endregion
 
         #region EVENT GAME ON UPDATE
-        static float? onupdatetimers;//limit onupdate to 5 times per second
+        static float? onupdatetimers;
         static void Game_OnUpdate(EventArgs args) {
             if (Player.IsDead || Player.IsRecalling()) { return; }
 
             if (onupdatetimers != null) {
-                if ((Game.ClockTime - onupdatetimers) > 0.200) {
+                if ((Game.ClockTime - onupdatetimers) > (1 / kalm.Item("onupdateT", true).GetValue<Slider>().Value)) {
                     onupdatetimers = null;
                 } else { return; }
             }
@@ -388,13 +391,13 @@ namespace Kalimá {
         #endregion
 
         #region EVENT ON DRAW
-        static float? ondrawtimers;//limit ondraw to 30 fps (force DraWing class to draw by frame)
+        static float? ondrawtimers;
         static void Drawing_OnDraw(EventArgs args) {
             if (Player.IsDead) { return; }
             var curposition = Player.Position;
-
+            var ondrawmenutimer = (1 / kalm.Item("ondrawT", true).GetValue<Slider>().Value);
             if (ondrawtimers != null) {
-                if ((Game.ClockTime - ondrawtimers) > 0.016) {
+                if ((Game.ClockTime - ondrawtimers) > ondrawmenutimer) {
                     ondrawtimers = null;
                 } else { return; }
             }
@@ -406,11 +409,11 @@ namespace Kalimá {
             var dE = kalm.Item("drawE").GetValue<Circle>();
             var dR = kalm.Item("drawR").GetValue<Circle>();
             var dj = kalm.Item("drawjumpspots").GetValue<Circle>();
-            if (dAA.Active) { DraWing.drawcircle("drawAA", 0.016, curposition, Orbwalking.GetRealAutoAttackRange(Player), dAA.Color); }
-            if (Q.IsReady() && dQ.Active) { DraWing.drawcircle("drawQ", 0.016, curposition, Q.Range, dQ.Color); }
-            if (W.IsReady() && dW.Active) { DraWing.drawcircle("drawW", 0.016, curposition, W.Range, dW.Color); }
-            if (E.IsReady() && dE.Active) { DraWing.drawcircle("drawE", 0.016, curposition, E.Range, dE.Color); }
-            if (R.IsReady() && dR.Active) { DraWing.drawcircle("drawR", 0.016, curposition, R.Range, dR.Color); }
+            if (dAA.Active) { DraWing.drawcircle("drawAA", 1, curposition, Orbwalking.GetRealAutoAttackRange(Player), dAA.Color); }
+            if (Q.IsReady() && dQ.Active) { DraWing.drawcircle("drawQ", 1, curposition, Q.Range, dQ.Color); }
+            if (W.IsReady() && dW.Active) { DraWing.drawcircle("drawW", 1, curposition, W.Range, dW.Color); }
+            if (E.IsReady() && dE.Active) { DraWing.drawcircle("drawE", 1, curposition, E.Range, dE.Color); }
+            if (R.IsReady() && dR.Active) { DraWing.drawcircle("drawR", 1, curposition, R.Range, dR.Color); }
             if (kalm.Item("drawsoulmatelink", true).GetValue<Boolean>()) {
                 draw_soulmate_link();
             }
@@ -432,23 +435,25 @@ namespace Kalimá {
                             }
                         }
                         if (kalm.Item("drawminrange", true).GetValue<Boolean>()) {
-                            DraWing.drawcircle("drawminrange", 0.016, curposition, kalm.Item("balistaminrange", true).GetValue<Slider>().Value, Color.Chartreuse);
+                            DraWing.drawcircle("drawminrange", 1, curposition, kalm.Item("balistaminrange", true).GetValue<Slider>().Value, Color.Chartreuse);
                         }
                         if (kalm.Item("drawmaxrange", true).GetValue<Boolean>()) {
-                            DraWing.drawcircle("drawmaxrange", 0.016, curposition, kalm.Item("balistamaxrange", true).GetValue<Slider>().Value, Color.Green);
+                            DraWing.drawcircle("drawmaxrange", 1, curposition, kalm.Item("balistamaxrange", true).GetValue<Slider>().Value, Color.Green);
                         }
                         if (kalm.Item("lineformat", true).GetValue<Boolean>()) {
+                            double linemaxt;
+                            if (ondrawmenutimer > 0.200) { linemaxt = 0.200; } else { linemaxt = ondrawmenutimer; }
                             var lineformat = HeroManager.Enemies.FindAll(a => a.ServerPosition.Distance(Player.ServerPosition) <= kalm.Item("balistenemyamaxrange", true).GetValue<Slider>().Value && !a.IsDead && a.IsVisible);
                             var foundvalidtarget = 0;
                             if (lineformat != null && isbalista(soulmate)) {
                                 foreach (var x in lineformat) {
                                     if (isbalista(x)) {
-                                        DraWing.drawline("drawtargetline" + x.CharData.BaseSkinName, 0.0333, x.HPBarPosition.X, x.HPBarPosition.Y, soulmate.HPBarPosition.X, soulmate.HPBarPosition.Y, 2.0f, Color.Red);
+                                        DraWing.drawline("drawtargetline" + x.CharData.BaseSkinName, linemaxt, x.HPBarPosition.X, x.HPBarPosition.Y, soulmate.HPBarPosition.X, soulmate.HPBarPosition.Y, 2.0f, Color.Red);
                                         foundvalidtarget++;
                                     }
                                 }
                                 if (foundvalidtarget > 0) {
-                                    DraWing.drawline("drawsoulmate", 0.016, soulmate.HPBarPosition.X, soulmate.HPBarPosition.Y, Player.HPBarPosition.X, Player.HPBarPosition.Y, 2.0f, Color.Red);
+                                    DraWing.drawline("drawsoulmate", linemaxt, soulmate.HPBarPosition.X, soulmate.HPBarPosition.Y, Player.HPBarPosition.X, Player.HPBarPosition.Y, 2.0f, Color.Red);
                                 }
                             }
                         }
@@ -457,7 +462,7 @@ namespace Kalimá {
             }
 
             if (kalm.Item("drawcoords", true).GetValue<Boolean>()) {
-                DraWing.drawtext("drawcoords", 0.0333, Drawing.Width * 0.45f, Drawing.Height * 0.70f, Color.GreenYellow, "Coords:" + Player.Position);
+                DraWing.drawtext("drawcoords", 1, Drawing.Width * 0.45f, Drawing.Height * 0.70f, Color.GreenYellow, "Coords:" + Player.Position);
             }
         }
 
@@ -500,15 +505,15 @@ namespace Kalimá {
             }
 
             if (soulmate.IsDead) {
-                DraWing.drawtext("drawlink", 0.0333, Drawing.Width * 0.45f, Drawing.Height * 0.82f, Color.Red, "Connection Signal with " + soulmate.ChampionName + ": None");
+                DraWing.drawtext("drawlink", 0.02, Drawing.Width * 0.45f, Drawing.Height * 0.82f, Color.Red, "Connection Signal with " + soulmate.ChampionName + ": None");
             } else {
                 var soulrange = Player.Distance(soulmate.Position);
                 if (soulrange > soulmateRange) {
-                    DraWing.drawtext("drawlink", 0.0333, Drawing.Width * 0.45f, Drawing.Height * 0.82f, Color.Red, "Connection Signal with " + soulmate.ChampionName + ": None");
+                    DraWing.drawtext("drawlink", 0.02, Drawing.Width * 0.45f, Drawing.Height * 0.82f, Color.Red, "Connection Signal with " + soulmate.ChampionName + ": None");
                 } else if (soulrange > 800) {
-                    DraWing.drawtext("drawlink", 0.0333, Drawing.Width * 0.45f, Drawing.Height * 0.82f, Color.Gold, "Connection Signal with " + soulmate.ChampionName + ": Low");
+                    DraWing.drawtext("drawlink", 0.02, Drawing.Width * 0.45f, Drawing.Height * 0.82f, Color.Gold, "Connection Signal with " + soulmate.ChampionName + ": Low");
                 } else {
-                    DraWing.drawtext("drawlink", 0.0333, Drawing.Width * 0.45f, Drawing.Height * 0.82f, Color.GreenYellow, "Connection Signal with " + soulmate.ChampionName + ": Good");
+                    DraWing.drawtext("drawlink", 0.02, Drawing.Width * 0.45f, Drawing.Height * 0.82f, Color.GreenYellow, "Connection Signal with " + soulmate.ChampionName + ": Good");
                 }
             }
         }
