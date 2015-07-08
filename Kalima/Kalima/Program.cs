@@ -67,6 +67,7 @@ namespace Kalimá {
             haraM.AddItem(new MenuItem("harassuseE", "Use E", true).SetValue(true));
             haraM.AddItem(new MenuItem("harassEoutOfRange", "Use E when out of range", true).SetValue(true));
             haraM.AddItem(new MenuItem("harassE", "when being able to kill X minions and E champion", true).SetValue(new Slider(1, 1, 10)));
+            haraM.AddItem(new MenuItem("harassEminhealth", "E req minion % health to prevent E cooldown", true).SetValue(new Slider(10, 1, 50)));
             haraM.AddItem(new MenuItem("harassmanaminE", "E requires % mana", true).SetValue(new Slider(30, 0, 100)));
             haraM.AddItem(new MenuItem("harassActive", "Active", true).SetValue(true));
 
@@ -100,13 +101,15 @@ namespace Kalimá {
             TimersM.AddItem(new MenuItem("ondrawT", "OnDraw Timer (max times per second)", true).SetValue(new Slider(30, 1, 500)));
 
 
-            DrawM.AddItem(new MenuItem("drawAA", "Real Attack Range").SetValue(new Circle(false, Color.FromArgb(0, 230, 255))));
-            DrawM.AddItem(new MenuItem("drawjumpspots", "Jump Spots").SetValue(new Circle(false, Color.FromArgb(0, 230, 255))));
-            DrawM.AddItem(new MenuItem("drawQ", "Q Range").SetValue(new Circle(false, Color.FromArgb(0, 230, 255))));
-            DrawM.AddItem(new MenuItem("drawW", "W Range").SetValue(new Circle(false, Color.FromArgb(0, 230, 255))));
-            DrawM.AddItem(new MenuItem("drawE", "E Range").SetValue(new Circle(false, Color.FromArgb(0, 230, 255))));
-            DrawM.AddItem(new MenuItem("drawR", "R Range").SetValue(new Circle(false, Color.FromArgb(0, 230, 255))));
+            DrawM.AddItem(new MenuItem("drawAA", "Auto Attack Range").SetValue(new Circle(false, Color.FromArgb(207, 207, 23))));
+            DrawM.AddItem(new MenuItem("drawjumpspots", "Jump Spots").SetValue(new Circle(false, Color.FromArgb(0, 0, 255))));
+            DrawM.AddItem(new MenuItem("drawQ", "Q Range").SetValue(new Circle(false, Color.FromArgb(43, 255, 0))));
+            DrawM.AddItem(new MenuItem("drawW", "W Range").SetValue(new Circle(false, Color.FromArgb(0, 0, 255))));
+            DrawM.AddItem(new MenuItem("drawE", "E Range").SetValue(new Circle(false, Color.FromArgb(57, 138, 204))));
+            DrawM.AddItem(new MenuItem("drawR", "R Range").SetValue(new Circle(false, Color.FromArgb(19, 154, 161))));
             //marksman...
+            DrawM.AddItem(new MenuItem("drawEdmg", "Draw E dmg HPbar").SetValue(new Circle(true, Color.FromArgb(100, 149, 237))));
+            DrawM.AddItem(new MenuItem("drawEspearsneeded", "Draw E# Spears Needed").SetValue(new Circle(false, Color.FromArgb(255, 140, 0))));
             DrawM.AddItem(new MenuItem("drawsoulmatelink", "Draw Link Signal", true).SetValue(true));
             DrawM.AddItem(new MenuItem("drawcoords", "Draw Map Coords", true).SetValue(false));
             var blitzskarneringame = HeroManager.Allies.Find(x => x.CharData.BaseSkinName == "Blitzcrank" || x.CharData.BaseSkinName == "Skarner");
@@ -223,7 +226,7 @@ namespace Kalimá {
             if (mymana < lemana || !E.IsReady()) { return; }
 
             if (kalm.Item("harassE", true).GetValue<Slider>().Value >= 1 && kalm.Item("harassEoutOfRange", true).GetValue<Boolean>()) {
-                var minhealth = kalm.Item("laneclearEminhealth", true).GetValue<Slider>().Value;//readability/future usage
+                var minhealth = kalm.Item("harassEminhealth", true).GetValue<Slider>().Value;//readability/future usage
                 //use R.range instead of E.range so it can harass ".outofrange" as long as E is castable
                 var Minions = MinionManager.GetMinions(Player.ServerPosition, R.Range, MinionTypes.All, MinionTeam.NotAlly).FindAll(x => (x.Health + (x.HPRegenRate / 2)) < GetEDamage(x) && ECanCast(x) && x.HealthPercent >= minhealth);
                 if (Minions != null && Minions.Count() >= kalm.Item("harassE", true).GetValue<Slider>().Value) {
@@ -385,7 +388,7 @@ namespace Kalimá {
                     MyLevel++;
                 } else {
                     MyLevel++;
-                    if (MyLevel == 1) { Player.Spellbook.LevelUpSpell(SpellSlot.Q); }
+                    if (MyLevel == 2) { Player.Spellbook.LevelUpSpell(SpellSlot.Q); }
                     Player.Spellbook.LevelUpSpell(SpellSlot.R);
                     Player.Spellbook.LevelUpSpell(SpellSlot.E);
                     Player.Spellbook.LevelUpSpell(SpellSlot.Q);
@@ -464,9 +467,53 @@ namespace Kalimá {
                     }
                 }
             }
+            var dEDmG = kalm.Item("drawEdmg").GetValue<Circle>();
+            if (dEDmG.Active) {
+                var enemieswithspears = HeroManager.Enemies.Where(x => x.HasBuff("kalistaexpungemarker") && x.IsHPBarRendered);
+                if (enemieswithspears != null) {
+                    var barsize = 104f;
+                    foreach (var enemy in enemieswithspears) {
+                        var health = enemy.Health;
+                        var maxhealth = enemy.MaxHealth;
+                        var pos = enemy.HPBarPosition;
+                        var percent = GetEDamage(enemy) / maxhealth * barsize;
+                        var start = pos + (new Vector2(10f, 19f));
+                        var end = pos + (new Vector2(10f + percent, 19f));
+
+                        DraWing.drawline("drawEdmg" + enemy.ChampionName, ondrawmenutimer, start[0], start[1], end[0], end[1], 3.0f, dEDmG.Color);
+                    }
+                }
+            }
+
+            var dEsps = kalm.Item("drawEspearsneeded").GetValue<Circle>();
+            if (dEsps.Active && E.Level > 0) {
+                var enemieswithspears = HeroManager.Enemies.Where(x => x.HasBuff("kalistaexpungemarker"));
+                if (enemieswithspears != null) {
+                    foreach (var enemy in enemieswithspears) {
+                        var spearcount = enemy.GetBuffCount("kalistaexpungemarker");
+                        for (int spears = 1; spears < 250; spears++) {
+                            var Edmg = Math.Round(GetEDamage(enemy, spears));//shorten output size..
+                            if (Edmg == 1) { break; }
+                            if (Edmg > enemy.Health) {
+                                var kill = 0;
+                                for (int spearstokill = 1; spearstokill <= (spears - spearcount); spearstokill++) {
+                                    var futdmg = Math.Round(GetEDamage(enemy, spearstokill)) + (spearstokill * Player.GetAutoAttackDamage(enemy));
+                                    var getfutdmg = (GetEDamage(enemy) + futdmg);
+                                    if (getfutdmg > enemy.Health) {
+                                        kill = spearstokill;
+                                        break;
+                                    }
+                                }
+                                DraWing.drawtext("drawEspears", ondrawmenutimer, enemy.HPBarPosition.X + 150, enemy.HPBarPosition.Y + 20, dEsps.Color, "[E: " + spearcount + " / L: " + (kill+1) + "]");
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
 
             if (kalm.Item("drawcoords", true).GetValue<Boolean>()) {
-                DraWing.drawtext("drawcoords", 1, Drawing.Width * 0.45f, Drawing.Height * 0.70f, Color.GreenYellow, "Coords:" + Player.Position);
+                DraWing.drawtext("drawcoords", 1, Drawing.Width * 0.45f, Drawing.Height * 0.70f, Color.GreenYellow, "Coords:" + Player.Position + " Dmg: " + Player.TotalAttackDamage);
             }
         }
 
@@ -506,6 +553,9 @@ namespace Kalimá {
             if (soulmate == null) {
                 soulmate = HeroManager.Allies.Find(a => !a.IsMe && a.Buffs.Any(b => b.Name.Contains("kalistacoopstrikeally")));
                 if (soulmate == null) { return; }
+            } else if (Game.ClockTime < (60*5)) {//check for changes until 5 minutes in game which then kali isnt allowed to change coop
+                soulmate = HeroManager.Allies.Find(a => !a.IsMe && a.Buffs.Any(b => b.Name.Contains("kalistacoopstrikeally")));
+                if (soulmate == null) { return; }            
             }
 
             if (soulmate.IsDead) {
@@ -515,18 +565,19 @@ namespace Kalimá {
                 if (soulrange > soulmateRange) {
                     DraWing.drawtext("drawlink", 1, Drawing.Width * 0.45f, Drawing.Height * 0.82f, Color.Red, "Connection Signal with " + soulmate.ChampionName + ": None");
                 } else if (soulrange > 800) {
-                    DraWing.drawtext("drawlink", 1, Drawing.Width * 0.45f, Drawing.Height * 0.82f, Color.Gold, "Connection Signal with " + soulmate.ChampionName + ": Low");
+                    DraWing.drawtext("drawlink", 1, Drawing.Width * 0.45f, Drawing.Height * 0.82f, Color.Yellow, "Connection Signal with " + soulmate.ChampionName + ": Low");
                 } else {
-                    DraWing.drawtext("drawlink", 1, Drawing.Width * 0.45f, Drawing.Height * 0.82f, Color.GreenYellow, "Connection Signal with " + soulmate.ChampionName + ": Good");
+                    DraWing.drawtext("drawlink", 1, Drawing.Width * 0.45f, Drawing.Height * 0.82f, Color.Green, "Connection Signal with " + soulmate.ChampionName + ": Good");
                 }
             }
         }
         #endregion
 
         #region MISC FUNCTIONS
-        static float GetEDamage(Obj_AI_Base target) {
+        static float GetEDamage(Obj_AI_Base target, int spears = 0) {
             var stacks = target.GetBuffCount("kalistaexpungemarker");
-            if (stacks == 0 || !E.IsReady()) { return 1; }
+            if (spears > 0) { stacks = spears; }
+            if (stacks == 0) { return 1; }
 
             var baseDamage = new[] { 20, 30, 40, 50, 60 };
             var bd = baseDamage[E.Level - 1];
@@ -537,7 +588,8 @@ namespace Kalimá {
             var sd = spearDamage[E.Level - 1];
             var additionalSpearDamage = new[] { 0.20f, 0.225f, 0.25f, 0.275f, 0.30f };
             var asd = additionalSpearDamage[E.Level - 1];
-            double playertotalad = Player.TotalAttackDamage;
+            double realtotalad = Player.TotalAttackDamage * .99;//remove 1% until its fixed in l# to reflect the new 0.9 AD changes
+            double playertotalad = realtotalad;
 
             if (target is Obj_AI_Hero) {
                 if (Player.Masteries.Any()) {
@@ -563,7 +615,7 @@ namespace Kalimá {
                 }
             }
 
-            double totalDamage = bd + abd * Player.TotalAttackDamage + (stacks - 1) * (sd + asd * playertotalad);
+            double totalDamage = bd + abd * realtotalad + (stacks - 1) * (sd + asd * playertotalad);
 
             totalDamage = 100 / (100 + (target.Armor * Player.PercentArmorPenetrationMod) -
                 Player.FlatArmorPenetrationMod) * totalDamage;
@@ -675,7 +727,7 @@ namespace Kalimá {
                 }
                 var closestenemy = HeroManager.Enemies.Find(x => Player.ServerPosition.Distance(x.ServerPosition) < kalm.Item("autowenemyclose", true).GetValue<Slider>().Value);
                 if (closestenemy != null) { return; }
-                if ((Player.ManaPercent < 50) || Player.IsDashing() || Player.IsWindingUp) { return; }
+                if ((Player.ManaPercent < 50) || Player.IsDashing() || Player.IsWindingUp || Player.InFountain()) { return; }
                 fillsentinels();
 
                 Random rnd = new Random();
