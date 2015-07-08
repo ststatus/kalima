@@ -468,7 +468,7 @@ namespace Kalimá {
                 }
             }
             var dEDmG = kalm.Item("drawEdmg").GetValue<Circle>();
-            if (dEDmG.Active) {
+            if (dEDmG.Active && E.Level > 0) {
                 var enemieswithspears = HeroManager.Enemies.Where(x => x.HasBuff("kalistaexpungemarker") && x.IsHPBarRendered);
                 if (enemieswithspears != null) {
                     var barsize = 104f;
@@ -504,7 +504,7 @@ namespace Kalimá {
                                         break;
                                     }
                                 }
-                                DraWing.drawtext("drawEspears", ondrawmenutimer, enemy.HPBarPosition.X + 150, enemy.HPBarPosition.Y + 20, dEsps.Color, "[E: " + spearcount + " / L: " + (kill+1) + "]");
+                                DraWing.drawtext("drawEspears", ondrawmenutimer, enemy.HPBarPosition.X + 150, enemy.HPBarPosition.Y + 19, dEsps.Color, "[E: " + spearcount + " / L: " + (kill+1) + "]");
                                 break;
                             }
                         }
