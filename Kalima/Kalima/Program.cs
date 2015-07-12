@@ -112,13 +112,18 @@ namespace Kalimá {
             DrawM.AddItem(new MenuItem("drawEspearsneeded", "Draw E# Spears Needed").SetValue(new Circle(false, Color.FromArgb(255, 140, 0))));
             DrawM.AddItem(new MenuItem("drawsoulmatelink", "Draw Link Signal", true).SetValue(true));
             DrawM.AddItem(new MenuItem("drawcoords", "Draw Map Coords", true).SetValue(false));
-            var blitzskarneringame = HeroManager.Allies.Find(x => x.CharData.BaseSkinName == "Blitzcrank" || x.CharData.BaseSkinName == "Skarner");
+            var blitzskarneringame = HeroManager.Allies.Find(x => 
+                x.CharData.BaseSkinName == "Blitzcrank" ||
+                x.CharData.BaseSkinName == "Skarner" ||
+                x.CharData.BaseSkinName == "TahmKench");
             if (blitzskarneringame != null) {
                 //check if its blitz or skarner the ally...
                 string menuname;
                 if (blitzskarneringame.CharData.BaseSkinName == "Blitzcrank") {
                     menuname = "Balista";
-                } else { menuname = "Salista"; }
+                } else if (blitzskarneringame.CharData.BaseSkinName == "Skarner") {
+                    menuname = "Salista";
+                } else { menuname = "Talista"; }
 
                 Menu balista = kalimenu.AddSubMenu(new Menu(menuname, menuname));
 
@@ -131,9 +136,9 @@ namespace Kalimá {
                 foreach (var enemy in HeroManager.Enemies.FindAll(x => x.IsEnemy)) {
                     targetselect.AddItem(new MenuItem("target" + enemy.ChampionName, enemy.ChampionName).SetValue(true));
                 }
-                balista.AddItem(new MenuItem("balistaminrange", "Min Range", true).SetValue(new Slider(600, 500, 1400)));
-                balista.AddItem(new MenuItem("balistamaxrange", "Max Range", true).SetValue(new Slider(1350, 500, 1400)));
-                balista.AddItem(new MenuItem("balistenemyamaxrange", "Enemy Max Range", true).SetValue(new Slider(2000, 500, 2400)));
+                balista.AddItem(new MenuItem("balistaminrange", "Min Range", true).SetValue(new Slider(450, 500, 1400)));
+                balista.AddItem(new MenuItem("balistamaxrange", "Max Range", true).SetValue(new Slider(1250, 500, 1250)));
+                balista.AddItem(new MenuItem("balistenemyamaxrange", "Enemy Max Range", true).SetValue(new Slider(2300, 500, 2400)));
                 balista.AddItem(new MenuItem("balistaActive", "Active", true).SetValue(true));
             }
 
@@ -430,9 +435,16 @@ namespace Kalimá {
             }
 
             if (soulmate != null) {
-                if (soulmate.ChampionName == "Blitzcrank" || soulmate.ChampionName == "Skarner" && R.IsReady()) {
+                if ((soulmate.ChampionName == "Blitzcrank" || 
+                    soulmate.ChampionName == "Skarner" ||
+                    soulmate.ChampionName == "TahmKench"
+                    ) && R.IsReady()) {
                     if (kalm.Item("balistaActive", true).GetValue<Boolean>()) {
-                        var enemy = HeroManager.Enemies.Find(a => a.Buffs.Any(b => b.Name.ToLower().Contains("rocketgrab2") || b.Name.ToLower().Contains("skarnerimpale")));
+                        var enemy = HeroManager.Enemies.Find(a => a.Buffs.Any(b =>
+                            b.Name.ToLower().Contains("rocketgrab2") ||
+                            b.Name.ToLower().Contains("skarnerimpale") ||
+                            b.Name.ToLower().Contains("tahmkenchwdevoured")
+                            ));
                         //balista stuff...
                         if (enemy != null) {
                             //do both checks since we might have both in a game...
@@ -440,6 +452,7 @@ namespace Kalimá {
                             if (kalimenu.Item("target" + enemy.ChampionName).GetValue<bool>() && enemy.Health > 200 && isbalista(enemy)) {
                                 if (enemy.HasBuff("rocketgrab2") && soulmate.ChampionName == "Blitzcrank") { doult = 1; }
                                 if (enemy.HasBuff("skarnerimpale") && soulmate.ChampionName == "Skarner") { doult = 1; }
+                                if (enemy.HasBuff("tahmkenchwdevoured") && soulmate.ChampionName == "TahmKench") { doult = 1; }
                                 if (doult == 1) { R.Cast(); }
                             }
                         }
@@ -480,7 +493,7 @@ namespace Kalimá {
                         var start = pos + (new Vector2(10f, 19f));
                         var end = pos + (new Vector2(10f + percent, 19f));
 
-                        DraWing.drawline("drawEdmg" + enemy.ChampionName, ondrawmenutimer, start[0], start[1], end[0], end[1], 3.0f, dEDmG.Color);
+                        DraWing.drawline("drawEdmg" + enemy.ChampionName, ondrawmenutimer, start[0], start[1], end[0], end[1], 4.0f, dEDmG.Color);
                     }
                 }
             }
@@ -520,7 +533,9 @@ namespace Kalimá {
         static bool isbalista(Obj_AI_Hero hero) {
             if (soulmate == null) { return false; }
             if (soulmate.IsDead) { return false; }
-            if (soulmate.CharData.BaseSkinName == "Blitzcrank" || soulmate.CharData.BaseSkinName == "Skarner") {
+            if (soulmate.CharData.BaseSkinName == "Blitzcrank" ||
+                soulmate.CharData.BaseSkinName == "Skarner" ||
+                soulmate.CharData.BaseSkinName == "TahmKench") {
                 var enemymaxrange = kalm.Item("balistenemyamaxrange", true).GetValue<Slider>().Value;
                 var balistaminrange = kalm.Item("balistaminrange", true).GetValue<Slider>().Value;
                 var balistamaxrange = kalm.Item("balistamaxrange", true).GetValue<Slider>().Value;
@@ -589,6 +604,7 @@ namespace Kalimá {
             var additionalSpearDamage = new[] { 0.20f, 0.225f, 0.25f, 0.275f, 0.30f };
             var asd = additionalSpearDamage[E.Level - 1];
             double realtotalad = Player.TotalAttackDamage * .99;//remove 1% until its fixed in l# to reflect the new 0.9 AD changes
+//            double realtotalad = Player.TotalAttackDamage;
             double playertotalad = realtotalad;
 
             if (target is Obj_AI_Hero) {
