@@ -28,6 +28,7 @@ namespace Kalimá {
         static Items.Item botrk = new Items.Item(3153, 425);
         static Items.Item mercurial = new Items.Item(3139,0f);//debuff
         static Items.Item dervish = new Items.Item(3137, 0f);//debuff
+        static Items.Item qss = new Items.Item(3141,0f);//debuff
 
         static void Game_OnGameLoad(EventArgs args) {//"1 3 1 2 1 4 1 3 1 3 4 3 3 2 2 4 2 2";
             if (Player.ChampionName != "Kalista") { return; }
