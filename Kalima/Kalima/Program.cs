@@ -25,6 +25,9 @@ namespace Kalimá {
         static Obj_AI_Hero soulmate;//store the soulbound friend..
         static float soulmateRange = 1250f;
         static int MyLevel = 0;
+        static Items.Item botrk = new Items.Item(3153, 425);
+        static Items.Item mercurial = new Items.Item(3139,0f);//debuff
+        static Items.Item dervish = new Items.Item(3137, 0f);//debuff
 
         static void Game_OnGameLoad(EventArgs args) {//"1 3 1 2 1 4 1 3 1 3 4 3 3 2 2 4 2 2";
             if (Player.ChampionName != "Kalista") { return; }
@@ -59,6 +62,7 @@ namespace Kalimá {
             Menu LaneM = kalimenu.AddSubMenu(new Menu("Lane Clear", "LaneClear"));
             Menu JungM = kalimenu.AddSubMenu(new Menu("Jungle Clear", "Jungleclear"));
             Menu MiscM = kalimenu.AddSubMenu(new Menu("Misc", "Misc"));
+            Menu ItemM = kalimenu.AddSubMenu(new Menu("Items", "Items"));
             Menu DrawM = kalimenu.AddSubMenu(new Menu("Drawing", "Drawing"));
 
             haraM.AddItem(new MenuItem("harassQ", "Use Q", true).SetValue(true));
@@ -88,6 +92,14 @@ namespace Kalimá {
             LaneM.AddItem(new MenuItem("laneclearmanaminE", "E requires % mana", true).SetValue(new Slider(30, 0, 100)));
             LaneM.AddItem(new MenuItem("laneclearbigminionsE", "E when it can kill siege/super minions", true).SetValue(true));
             LaneM.AddItem(new MenuItem("laneclearlasthit", "E when non-killable by AA", true).SetValue(true));
+
+            Menu BotrkM = ItemM.AddSubMenu(new Menu("Botrk", "Botrk"));
+            BotrkM.AddItem(new MenuItem("botrkKS", "Use when target has < x% health + Q+E(dmg)", true).SetValue(new Slider(20, 10, 100)));
+            BotrkM.AddItem(new MenuItem("botrkmyheal", "Use when my health is at: < x%", true).SetValue(new Slider(40, 0, 100)));
+            BotrkM.AddItem(new MenuItem("botrkactive", "Active", true).SetValue(true));
+            Menu Debuffs = ItemM.AddSubMenu(new Menu("Debuffs", "Debuffs"));
+            Debuffs.AddItem(new MenuItem("debuffitems", "Supports QSS/Mercurial/Dervish"));
+            Debuffs.AddItem(new MenuItem("debuffitemsactive", "Active", true).SetValue(true));
 
             MiscM.AddItem(new MenuItem("AutoLevel", "Auto Level Skills", true).SetValue(true));
             MiscM.AddItem(new MenuItem("autoW", "Auto W", true).SetValue(true));
@@ -149,13 +161,15 @@ namespace Kalimá {
         #region EVENT GAME ON UPDATE
         static float? onupdatetimers;
         static void Game_OnUpdate(EventArgs args) {
-            if (Player.IsDead || Player.IsRecalling()) { return; }
-
             if (onupdatetimers != null) {
                 if ((Game.ClockTime - onupdatetimers) > (1 / kalm.Item("onupdateT", true).GetValue<Slider>().Value)) {
                     onupdatetimers = null;
                 } else { return; }
             }
+
+            if (Player.IsRecalling()) { return; }
+            if (Player.Level >= MyLevel) {Event_OnLevelUp();}
+            if (Player.IsDead) { return; }
 
             if (kalm.Item("killsteal", true).GetValue<Boolean>()) {
                 Killsteal();
@@ -175,6 +189,11 @@ namespace Kalimá {
                 ShowjumpsandFlee();
             }
 
+            var closebyenemy = Orbwalker.GetTarget();
+            if (closebyenemy != null && closebyenemy is Obj_AI_Hero && Player.Position.Distance(closebyenemy.Position) < E.Range) {
+                Event_OnItems((Obj_AI_Hero)closebyenemy);
+            }
+
             switch (Orbwalker.ActiveMode) {
                 case Orbwalking.OrbwalkingMode.LaneClear:
                     laneclear();
@@ -183,9 +202,6 @@ namespace Kalimá {
                     break;
                 case Orbwalking.OrbwalkingMode.Mixed:
                     break;
-            }
-            if (Player.Level >= MyLevel) {
-                Event_OnLevelUp();
             }
             onupdatetimers = Game.ClockTime;
         }
@@ -274,6 +290,7 @@ namespace Kalimá {
         static void Killsteal() {
             foreach (var enemy in ObjectManager.Get<Obj_AI_Hero>().Where(h => Q.CanCast(h) || ECanCast(h))) {
                 if (hasundyingbuff(enemy)) { continue; }
+                //var edmg = GetEDamage(enemy);
                 var edmg = GetEDamage(enemy);
                 var enemyhealth = enemy.Health;
                 var enemyregen = enemy.HPRegenRate / 2;
@@ -294,21 +311,30 @@ namespace Kalimá {
         static void Jungleclear() {
             var mymana = Manapercent;
             if (mymana < kalm.Item("jungleclearmana", true).GetValue<Slider>().Value) { return; }
-
+            var MINIONS = MinionManager.GetMinions(E.Range,MinionTypes.All,MinionTeam.All,MinionOrderTypes.MaxHealth);
             //baron / dragon
             if (kalm.Item("bardragsteal", true).GetValue<Boolean>()) {
-                var junglehugeE = MinionManager.GetMinions(E.Range, MinionTypes.All, MinionTeam.Enemy, MinionOrderTypes.MaxHealth).FirstOrDefault(x => x.Health + (x.HPRegenRate / 2) <= GetEDamage(x) && (x.CharData.BaseSkinName.ToLower().Contains("dragon") || x.CharData.BaseSkinName.ToLower().Contains("baron")));
-                if (junglehugeE != null && ECanCast(junglehugeE)) { ECast(); }//jungleclearQbd
-                var junglehugeQ = MinionManager.GetMinions(Q.Range, MinionTypes.All, MinionTeam.Enemy, MinionOrderTypes.MaxHealth).FirstOrDefault(x => x.Health + (x.HPRegenRate / 2) <= Q.GetDamage(x) && (x.CharData.BaseSkinName.ToLower().Contains("dragon") || x.CharData.BaseSkinName.ToLower().Contains("baron")));
-                if (junglehugeQ != null && Q.CanCast(junglehugeQ)) { Q.Cast(junglehugeQ); }
+                var bigkahuna = MINIONS.Find(x => (ECanCast(x) || Q.CanCast(x)) && (x.CharData.BaseSkinName.ToLower().Contains("dragon") || x.CharData.BaseSkinName.ToLower().Contains("baron")));
+                if (bigkahuna != null) {
+                    var kahunaE = GetEDamage(bigkahuna);
+                    var kahunaQ = Q.GetDamage(bigkahuna);
+                    var kahunahealth = (bigkahuna.Health + (bigkahuna.HPRegenRate / 2));
+                    if (ECanCast(bigkahuna) && kahunahealth < kahunaE) { ECast(); }
+                    if (Q.CanCast(bigkahuna) && kahunahealth < kahunaQ) { Q.Cast(bigkahuna); }
+                    //check for q+e combo..and Qit..if it lands next jungclear will Eit
+                    //useful for stealing from outside the pit by the wall with a q+e
+                    if (kahunahealth < (kahunaE + kahunaQ)) { Q.Cast(bigkahuna); }
+                }
             }
             //other minions in jungle...
-            var jungleinside = MinionManager.GetMinions(E.Range, MinionTypes.All, MinionTeam.Neutral, MinionOrderTypes.MaxHealth).FirstOrDefault();
-            if (kalm.Item("jungleclearQ", true).GetValue<Boolean>()) {
-                if (Q.CanCast(jungleinside)) { Q.Cast(jungleinside); }
-            }
-            if (kalm.Item("jungleclearE", true).GetValue<Boolean>()) {
-                if (ECanCast(jungleinside) && (jungleinside.Health + (jungleinside.HPRegenRate / 2)) <= GetEDamage(jungleinside)) { ECast(); }
+            var jungleinside = MINIONS.Find(X => X.Team == GameObjectTeam.Neutral && !X.CharData.BaseSkinName.ToLower().Contains("dragon") && !X.CharData.BaseSkinName.ToLower().Contains("baron"));
+            if (jungleinside != null) {
+                if (kalm.Item("jungleclearQ", true).GetValue<Boolean>()) {
+                    if (Q.CanCast(jungleinside)) { Q.Cast(jungleinside); }
+                }
+                if (kalm.Item("jungleclearE", true).GetValue<Boolean>()) {
+                    if (ECanCast(jungleinside) && (jungleinside.Health + (jungleinside.HPRegenRate / 2)) <= GetEDamage(jungleinside)) { ECast(); }
+                }            
             }
         }
         #endregion
@@ -354,17 +380,45 @@ namespace Kalimá {
 
         #region MISC EVENTS
 
+        static void Event_OnItems(Obj_AI_Hero target) {
+            if (Player.IsDead) { return; }
+            if (Player.IsAttackingPlayer) {//offensive items go here...
+                var targethealth = target.Health;
+                var qdmg = Q.GetDamage(target);
+                var edmg = GetEDamage(target);
+                if (kalm.Item("botrkactive", true).GetValue<Boolean>() && botrk.IsReady() && botrk.IsInRange(target.Position)) {
+                    //selfish self-preservation
+                    if (Player.HealthPercent < kalm.Item("botrkmyheal", true).GetValue<Slider>().Value) { botrk.Cast(target); }
+                    //total dmg that I can do to target
+                    var totaldmg = qdmg + edmg;
+                    //get in health how much is x% of his total health
+                    var healthdmg = (kalm.Item("botrkKS", true).GetValue<Slider>().Value / 100) * target.MaxHealth;
+                    //if his health is less than x%+q+e then just botrkhim
+                    if (target.Health < healthdmg+totaldmg) {
+                        botrk.Cast(target);
+                        DraWing.drawtext("botrkwho", 3, Drawing.Width * 0.45f, Drawing.Height * 0.80f, Color.PapayaWhip, "Using botrk on: " + target.ChampionName);
+                    }
+                }
+                
+            }
+        }
+
         static void Event_OnProcessSpellCast(Obj_AI_Base sender, GameObjectProcessSpellCastEventArgs args) {
             //3 if's for no checks later...
-            if (soulmate == null || Player.IsDead || !R.IsReady() || Player.Spellbook.IsCastingSpell) { return; }
-            if (!kalm.Item("savesoulbound", true).GetValue<Boolean>()) { return; }
-            if (sender.IsMe) {
-                if (args.SData.Name == "KalistaExpungeWrapper") {
-                    Orbwalking.ResetAutoAttackTimer(); //dont reset because it does double E's and puts E on cooldown
-                }
+            if (soulmate == null || Player.IsDead || !R.IsReady()) { return; }
+            if (sender.IsMe && args.SData.Name == "KalistaExpungeWrapper") {
+                Utility.DelayAction.Add(250, Orbwalking.ResetAutoAttackTimer); //dont reset because it does double E's and puts E on cooldown
             }
-            if (sender.IsEnemy && sender.Distance(soulmate.ServerPosition) < 1500f) {
-                if (soulmate.HealthPercent <= kalm.Item("savesoulboundat").GetValue<Slider>().Value) {
+            if (!kalm.Item("savesoulbound", true).GetValue<Boolean>()) { return; }
+            //credits to hellsing modified to my liking...
+            if (sender is Obj_AI_Hero && sender.IsEnemy && args.Target.NetworkId == soulmate.NetworkId) {
+                var enemy = (Obj_AI_Hero)sender;
+                var slot = enemy.GetSpellSlot(args.SData.Name);
+                if (slot != null && slot == enemy.GetSpellSlot("SummonerDot")) {
+                    var dmgonsoul = (float)enemy.GetSummonerSpellDamage(soulmate, Damage.SummonerSpell.Ignite);
+                    if (dmgonsoul > soulmate.Health && R.IsReady()) { R.Cast(); }
+                }
+                if (soulmate.HealthPercent <= kalm.Item("savesoulboundat", true).GetValue<Slider>().Value) {
                     R.Cast();
                 }
             }
@@ -526,7 +580,12 @@ namespace Kalimá {
             }
 
             if (kalm.Item("drawcoords", true).GetValue<Boolean>()) {
-                DraWing.drawtext("drawcoords", 1, Drawing.Width * 0.45f, Drawing.Height * 0.70f, Color.GreenYellow, "Coords:" + Player.Position + " Dmg: " + Player.TotalAttackDamage);
+                var enemy = HeroManager.Enemies.FirstOrDefault(x => x.GetBuffCount("kalistaexpungemarker") > 0);
+                if (enemy != null) {
+                    DraWing.drawtext("draweolddmg", 1, Drawing.Width * 0.10f, Drawing.Height * 0.20f, Color.GreenYellow, "GetEdamage:" + GetEDamage(enemy));
+                    DraWing.drawtext("drawenewdmg", 1, Drawing.Width * 0.10f, Drawing.Height * 0.25f, Color.GreenYellow, "NewEdamage:" + newEdamage(enemy));
+                }
+                DraWing.drawtext("drawcoords", 1, Drawing.Width * 0.35f, Drawing.Height * 0.70f, Color.GreenYellow, "Coords:" + Player.Position + " Dmg: " + Player.TotalAttackDamage);
             }
         }
 
@@ -589,6 +648,12 @@ namespace Kalimá {
         #endregion
 
         #region MISC FUNCTIONS
+
+        static float newEdamage(Obj_AI_Base target, int spears = 0) {
+            var dmg = Player.GetDamageSpell(target,SpellSlot.E).CalculatedDamage;
+            return (float)dmg;
+        }
+
         static float GetEDamage(Obj_AI_Base target, int spears = 0) {
             var stacks = target.GetBuffCount("kalistaexpungemarker");
             if (spears > 0) { stacks = spears; }
@@ -662,6 +727,7 @@ namespace Kalimá {
             }
             return (float)totalDamage;
         }
+
         //idea from hellsing
         static bool hasundyingbuff(Obj_AI_Hero target) {
             var hasbuff = HeroManager.Enemies.Find(a =>

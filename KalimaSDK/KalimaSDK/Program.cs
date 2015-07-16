@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Drawing;
 using System.ComponentModel;
+using System.Windows.Forms;
 using LeagueSharp;
 using LeagueSharp.SDK.Core;
 using LeagueSharp.SDK.Core.Enumerations;
@@ -13,13 +14,12 @@ using LeagueSharp.SDK.Core.UI.IMenu;
 using LeagueSharp.SDK.Core.UI.IMenu.Values;
 using LeagueSharp.SDK.Core.UI.IMenu.Abstracts;
 using LeagueSharp.SDK.Core.Events;
-using LeagueSharp.SDK.Core.Wrappers;
-using LeagueSharp.SDK.Core.Wrappers.Spell;
 using LeagueSharp.SDK.Core.IDrawing;
 using LeagueSharp.SDK.Core.Extensions;
 using LeagueSharp.SDK.Core.Extensions.SharpDX;
 using LeagueSharp.SDK.Core.Utils;
 using LeagueSharp.SDK.Core.Math.Prediction;
+using LeagueSharp.SDK.Core.Wrappers;
 using SharpDX;
 using SharpDX.Direct3D9;
 using Collision = LeagueSharp.SDK.Core.Math.Collision;
@@ -68,11 +68,11 @@ namespace Kalima {
 //            Drawing.OnDraw += Drawing_OnDraw;
             Drawing.OnDraw += DraWing.Drawing_OnDraw;
             Obj_AI_Hero.OnProcessSpellCast += Event_OnProcessSpellCast;
-            //            Orbwalking.OnNonKillableMinion += Event_OnNonKillableMinion;
+            Orbwalker.OnAction += Event_OnAction;
 //            Obj_AI_Hero.OnBuffAdd += Event_OnBuffAdd;
 //            FillPositions();
         }
-
+        [STAThread]//STAT (windows.forms att warning fix)
         static void Main(string[] args) { Load.OnLoad += Game_OnGameLoad; }
         #endregion
 
@@ -121,7 +121,7 @@ namespace Kalima {
             MiscM.Add(new MenuBool("killsteal", "Kill Steal", true));
             MiscM.Add(new MenuBool("savesoulbound", "Save Soulbound (With R)", true));
             MiscM.Add(new MenuSlider("savesoulboundat", "Save when health < %", 25, 0, 100));
-            MiscM.Add(new MenuBool("fleeKey", "Flee Toggle", false));
+            MiscM.Add(new MenuKeyBind("fleeKey", "Flee Toggle", Keys.T,KeyBindType.Toggle));
 
             var TimersM = MiscM.Add(new Menu("TimersM", "Timer Limits"));
             TimersM.Add(new MenuSlider("onupdateT", "OnUpdate Timer (max times per second)", 30, 1, 100));
@@ -140,20 +140,23 @@ namespace Kalima {
             DrawM.Add(new MenuBool("drawsoulmatelink", "Draw Link Signal", true));
             DrawM.Add(new MenuBool("drawcoords", "Draw Map Coords", false));
 
-            var balista = kalimenu.Add(new Menu("Balista", "Balista", false));
+            var blitzskarneringame = HeroManager.Allies.Find(x => x.CharData.BaseSkinName == "Blitzcrank" || x.CharData.BaseSkinName == "Skarner" || x.CharData.BaseSkinName == "TahmKench");
+            if (blitzskarneringame != null) {
+                var balista = kalimenu.Add(new Menu("Balista", "Balista", false));
 
-            var targetselect = balista.Add(new Menu("TargetSelector", "Target Selector"));
-            var champselect = balista.Add(new Menu("Drawings", "Drawings"));
-            champselect.Add(new MenuBool("drawminrange", "Min Range", false));
-            champselect.Add(new MenuBool("drawmaxrange", "Max Range", false));
-            champselect.Add(new MenuBool("lineformat", "Line Range", true));
-            foreach (var enemy in HeroManager.Enemies.FindAll(x => x.IsEnemy)) {
-                targetselect.Add(new MenuBool("target" + enemy.ChampionName, enemy.ChampionName));
+                var targetselect = balista.Add(new Menu("TargetSelector", "Target Selector"));
+                var champselect = balista.Add(new Menu("Drawings", "Drawings"));
+                champselect.Add(new MenuBool("drawminrange", "Min Range", false));
+                champselect.Add(new MenuBool("drawmaxrange", "Max Range", false));
+                champselect.Add(new MenuBool("lineformat", "Line Range", true));
+                foreach (var enemy in HeroManager.Enemies.FindAll(x => x.IsEnemy)) {
+                    targetselect.Add(new MenuBool("target" + enemy.ChampionName, enemy.ChampionName));
+                }
+                balista.Add(new MenuSlider("balistaminrange", "Min Range", 600, 500, 1400));
+                balista.Add(new MenuSlider("balistamaxrange", "Max Range", 1350, 500, 1400));
+                balista.Add(new MenuSlider("balistenemyamaxrange", "Enemy Max Range", 2000, 500, 2400));
+                balista.Add(new MenuBool("balistaActive", "Active", true));
             }
-            balista.Add(new MenuSlider("balistaminrange", "Min Range", 600, 500, 1400));
-            balista.Add(new MenuSlider("balistamaxrange", "Max Range", 1350, 500, 1400));
-            balista.Add(new MenuSlider("balistenemyamaxrange", "Enemy Max Range", 2000, 500, 2400));
-            balista.Add(new MenuBool("balistaActive", "Active", true));
 
             kalimenu.Attach();
         }
@@ -165,7 +168,6 @@ namespace Kalima {
             if (Player.IsDead) { return; }
 
             if (onupdatetimers != null) {
-                //var onupdatet = kalm["Misc"]["TimersM"]["onupdateT"].GetValue<MenuSlider>().Value;
                 var onupdatet = Mtimers["onupdateT"].GetValue<MenuSlider>().Value;
                 if ((Game.ClockTime - onupdatetimers) > (1 / onupdatet)) {
                     onupdatetimers = null;
@@ -176,7 +178,24 @@ namespace Kalima {
                 Killsteal();
             }
             if (Player.Level >= MyLevel) {Event_OnLevelUp();}
+
             if (Player.IsRecalling()) { return; }
+
+            if (Mharass["harassActive"].GetValue<MenuBool>().Value) {
+                harass();
+            }
+
+            if (MJungleClear["jungleActive"].GetValue<MenuBool>().Value) {
+                Jungleclear();
+            }
+
+            if (Mmisc["autoW"].GetValue<MenuBool>().Value) {
+                AutoW();
+            }
+
+            if (Mmisc["fleeKey"].GetValue<MenuKeyBind>().Active) {
+//                ShowjumpsandFlee();
+            }
 
             switch (Orbwalker.ActiveMode) {
                 case OrbwalkerMode.LaneClear:
@@ -192,6 +211,54 @@ namespace Kalima {
         #endregion
 
         #region HARASS
+
+        static void harass() {
+            var lqmana = Mharass["harassmanaminQ"].GetValue<MenuSlider>().Value;
+            var lemana = Mharass["harassmanaminE"].GetValue<MenuSlider>().Value;
+            var minmana = lqmana;
+            var mymana = Manapercent;
+            if (lemana < minmana) { minmana = lemana; }
+            if (mymana < minmana) { return; }//quick check to return if less than minmana...
+
+            if (Mharass["harassQ"].GetValue<MenuBool>().Value && mymana > lqmana && Q.IsReady(1) && !Player.IsDashing()) {
+                var enemies = HeroManager.Enemies.FindAll(h =>
+                    h.IsValidTarget(Q.Range) && Q.CanCast(h) &&
+                    ((Q.GetPrediction(h).Hitchance >= gethitchanceQ) ||
+                    (Q.GetPrediction(h).Hitchance == HitChance.Collision)));
+                if (enemies != null) {
+                    foreach (var enemy in enemies) {
+                        switch (Q.GetPrediction(enemy).Hitchance) {
+                            case HitChance.Collision:
+                                var collide = Q.GetPrediction(enemy).CollisionObjects;
+                                var dontbother = 0;
+                                foreach (var thing in collide) {
+                                    if (thing.Health > GetQDamage(thing)) { dontbother = 1; }
+                                }
+                                if (dontbother == 0) {
+                                    Q.Cast(enemy);
+                                }
+                                break;
+                            default:
+                                Q.Cast(enemy);
+                                break;
+                        }
+                    }
+                }
+            }
+
+            if (!Mharass["harassuseE"].GetValue<MenuBool>().Value) { return; }
+            if (mymana < lemana || !E.IsReady()) { return; }
+
+            if (Mharass["harassE"].GetValue<MenuSlider>().Value >= 1 && Mharass["harassEoutOfRange"].GetValue<MenuBool>().Value) {
+                var minhealth = Mharass["harassEminhealth"].GetValue<MenuSlider>().Value;//readability/future usage
+                //use R.range instead of E.range so it can harass ".outofrange" as long as E is castable
+                var Minions = GameObjects.EnemyMinions.Where(x => Player.Distance(x) < R.Range && (x.Health + (x.HPRegenRate / 2)) < GetEDamage(x) && ECanCast(x) && x.HealthPercent >= minhealth);
+                if (Minions != null && Minions.Count() >= Mharass["harassE"].GetValue<MenuSlider>().Value) {
+                    var enemy = HeroManager.Enemies.Find(x => ECanCast(x));
+                    if (enemy != null) { ECast(); }
+                }
+            }
+        }
 
         static void Killsteal() {
             foreach (var enemy in ObjectManager.Get<Obj_AI_Hero>().Where(h => Q.CanCast(h) || ECanCast(h))) {
@@ -209,13 +276,42 @@ namespace Kalima {
                 }
             }
         }
+        #endregion
 
+        #region JUNGLE CLEAR
+
+        static void Jungleclear() {
+            var mymana = Manapercent;
+            if (mymana < MJungleClear["jungleclearmana"].GetValue<MenuSlider>().Value) { return; }
+
+            //baron / dragon
+            if (MJungleClear["bardragsteal"].GetValue<MenuBool>().Value) {
+                var bigkahuna = ObjectManager.Get<Obj_AI_Minion>().Find(x => (ECanCast(x) || Q.CanCast(x)) && (x.CharData.BaseSkinName.ToLower().Contains("dragon") || x.CharData.BaseSkinName.ToLower().Contains("baron")));
+                if (bigkahuna != null) {
+                    var kahunaE = GetEDamage(bigkahuna);
+                    var kahunaQ = GetQDamage(bigkahuna);
+                    var kahunahealth = (bigkahuna.Health + (bigkahuna.HPRegenRate / 2));
+                    if (ECanCast(bigkahuna) && kahunahealth < kahunaE) {ECast();}
+                    if (Q.CanCast(bigkahuna) && kahunahealth < kahunaQ) {Q.Cast(bigkahuna);}
+                    //check for q+e combo..and Qit..if it lands next jungclear will Eit
+                    if (kahunahealth < (kahunaE+kahunaQ)) {Q.Cast(bigkahuna);}
+                }
+            }
+            //other minions in jungle...
+            var jungleinside = ObjectManager.Get<Obj_AI_Minion>().FirstOrDefault(x => Player.Distance(x) < E.Range && x.Team == GameObjectTeam.Neutral);
+            if (MJungleClear["jungleclearQ"].GetValue<MenuBool>().Value) {
+                if (Q.CanCast(jungleinside)) { Q.Cast(jungleinside); }
+            }
+            if (MJungleClear["jungleclearE"].GetValue<MenuBool>().Value) {
+                if (ECanCast(jungleinside) && (jungleinside.Health + (jungleinside.HPRegenRate / 2)) <= GetEDamage(jungleinside)) { ECast(); }
+            }
+        }
         #endregion
 
         #region LANECLEAR
 
         static void laneclear() {
-            if (Player.Spellbook.IsCastingSpell || (!E.IsReady() && !Q.IsReady())) { return; }
+            if (!E.IsReady() && !Q.IsReady()) { return; }
             var lqmana = MLaneClear["laneclearmanaminQ"].GetValue<MenuSlider>().Value;
             var lemana = MLaneClear["laneclearmanaminE"].GetValue<MenuSlider>().Value;
             var minmana = lqmana;
@@ -258,17 +354,9 @@ namespace Kalima {
         #region MISC FUNCTIONS
 
         static float GetQDamage(Obj_AI_Base target) {
-            var baseDamage = new[] { 10, 70, 130, 190, 250 };
-            var bd = baseDamage[Q.Level - 1];
-            var additionalBaseDamage = new[] { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };
-            var abd = additionalBaseDamage[Q.Level - 1];
-            var realtotalad = Player.TotalAttackDamage * 0.9;//remove 10% until its fixed in l# to reflect the new 0.9 AD changes
-
-            var totalDamage = bd + (abd * realtotalad);
-            totalDamage = 100 / (100 + (target.Armor * Player.PercentArmorPenetrationMod) -
-                Player.FlatArmorPenetrationMod) * totalDamage;
-
-            return (float)totalDamage;            
+            //from l# since 
+            double dmg = new[] { 10, 70, 130, 190, 250 }[Q.Level -1] + Player.BaseAttackDamage + Player.FlatPhysicalDamageMod;
+            return (float)Player.CalculateDamage(target,DamageType.Magical,dmg);
         }
 
         static float GetEDamage(Obj_AI_Base target, int spears = 0) {
@@ -345,6 +433,7 @@ namespace Kalima {
             return (float)totalDamage;
         }
 
+        //credits to xcsoft for this function
         static List<Obj_AI_Base> Q_GetCollisionMinions(Obj_AI_Hero source, Vector3 targetposition) {
             var input = new PredictionInput {
                 Unit = source,
@@ -412,7 +501,81 @@ namespace Kalima {
 
         #endregion
 
+        #region AUTO W (Sentinel stuff)
+        static readonly List<mysentinels> _mysentinels = new List<mysentinels>();
+        internal class mysentinels {
+            public string Name;
+            public Vector3 Position;
+            public mysentinels(string name, Vector3 position) {
+                Name = name;
+                Position = position;
+            }
+        }
+        static int? sentinelcloserthan(Vector3 position, int distance) {
+            foreach (var xxxXxxx in ObjectManager.Get<AttackableUnit>().Where(obj => obj.Name.Contains("RobotBuddy"))) {
+                if (Vector3.Distance(position, xxxXxxx.Position) < distance) { return 1; }
+            }
+            return 0;
+        }
+        static void fillsentinels() {
+            _mysentinels.Clear();
+            foreach (var xxxXxxx in ObjectManager.Get<AttackableUnit>().Where(obj => obj.Name.Contains("RobotBuddy"))) {
+                _mysentinels.Add(new mysentinels("RobotBuddy", xxxXxxx.Position));
+            }
+            //add the camps where to send sentinels to...
+            _mysentinels.Add(new mysentinels("Blue Camp Blue Buff", new Vector3(3864f,7822f,51.8922f)));
+            _mysentinels.Add(new mysentinels("Blue Camp Red Buff", new Vector3(7716f,4070f,54.10854f)));
+            _mysentinels.Add(new mysentinels("Red Camp Blue Buff", new Vector3(10800f,7010f,51.7226f)));
+            _mysentinels.Add(new mysentinels("Red Camp Red Buff", new Vector3(6948f,10642f,55.99818f)));
+            _mysentinels.Add(new mysentinels("Dragon", new Vector3(9728f,4328f,-71.2406f)));
+            _mysentinels.Add(new mysentinels("Baron", new Vector3(5002f,10480f,-71.2406f)));
+            _mysentinels.Add(new mysentinels("Mid Bot River", new Vector3(8370f, 6176f, -71.2406f)));
+            //add river mid bush here...
+            //_mysentinels.Add(new mysentinels("RiverTop", (Vector3)SummonersRift.Bushes.);
+        }
+        static float? autoWtimers;
+        static void AutoW() {
+            var useW = Mmisc["autoW"].GetValue<MenuBool>().Value;
+            if (useW && W.IsReady()) {
+                if (autoWtimers != null) {
+                    if ((Game.ClockTime - autoWtimers) > 2) {
+                        autoWtimers = null;
+                    } else { return; }
+                }
+                var closestenemy = HeroManager.Enemies.Find(x => Player.ServerPosition.Distance(x.ServerPosition) < Mmisc["autowenemyclose"].GetValue<MenuSlider>().Value);
+                if (closestenemy != null) { return; }
+                if ((Player.ManaPercent < 50) || Player.IsDashing() || Player.IsWindingUp || Player.InFountain()) { return; }
+                fillsentinels();
+
+                Random rnd = new Random();
+                var sentineldestinations = _mysentinels.Where(s => !s.Name.Contains("RobotBuddy")).OrderBy(s => rnd.Next()).ToList();
+                foreach (var destinations in sentineldestinations) {
+                    var distancefromme = Vector3.Distance(Player.Position, destinations.Position);
+                    if (sentinelcloserthan(destinations.Position, 1500) == 0 && distancefromme < W.Range) {
+                        autoWtimers = Game.ClockTime;
+                        W.Cast(destinations.Position);
+                        DraWing.drawtext("sendingbug", 3, Drawing.Width * 0.45f, Drawing.Height * 0.90f, Color.PapayaWhip, "Sending bug to: " + destinations.Name);
+                        return;
+                    }
+                }
+            }
+        }
+
+        #endregion
+
         #region MISC EVENTS
+        static void Event_OnAction(object sender, Orbwalker.OrbwalkerActionArgs e) {if (e.Type == OrbwalkerType.NonKillableMinion) {Event_OnNonKillableMinion((Obj_AI_Minion)e.Target);}}
+        static void Event_OnNonKillableMinion(Obj_AI_Minion minion) {
+            var minionX = minion;
+            if (!MLaneClear["laneclearE"].GetValue<MenuBool>().Value || !E.IsReady() || !ECanCast(minionX)) { return; }
+            if (Manapercent < MLaneClear["laneclearmanaminE"].GetValue<MenuSlider>().Value) { return; }
+            if (MLaneClear["laneclearlasthit"].GetValue<MenuBool>().Value) {
+                var minhealth = MLaneClear["laneclearEminhealth"].GetValue<MenuSlider>().Value;
+                if (minionX.Health <= GetEDamage(minionX) && minionX.HealthPercent >= minhealth) {
+                    ECast();
+                }
+            }
+        }
 
         static void Event_OnProcessSpellCast(Obj_AI_Base sender, GameObjectProcessSpellCastEventArgs args) {
             //3 if's for no checks later...
@@ -528,14 +691,11 @@ namespace Kalima {
                 return;
             }
         }
-        #endregion
+        #endregion                
 
-        
     }
-    
 
-    
-    #region HeroManager Temp...
+    #region HeroManager Temp
     public class HeroManager {
         /// <summary>
         ///     A list containing all heroes in the current match
@@ -564,4 +724,5 @@ namespace Kalima {
         }
     }
     #endregion
+
 }
