@@ -89,7 +89,7 @@ namespace Kalimá {
             LaneM.AddItem(new MenuItem("laneclearE", "Use E", true).SetValue(true));
             LaneM.AddItem(new MenuItem("laneclearEcast", "E cast if minions >= X (min value)", true).SetValue(new Slider(2, 0, 10)));
             LaneM.AddItem(new MenuItem("laneclearEcastincr", "Increase number by Level (decimal):", true).SetValue(new Slider(1, 0, 4)));
-            LaneM.AddItem(new MenuItem("laneclearEminhealth", "E req minion % health to prevent E cooldown", true).SetValue(new Slider(10, 1, 50)));
+            LaneM.AddItem(new MenuItem("laneclearEminhealth", "E req minion % health to prevent E cooldown", true).SetValue(new Slider(2, 1, 50)));
             LaneM.AddItem(new MenuItem("laneclearmanaminE", "E requires % mana", true).SetValue(new Slider(30, 0, 100)));
             LaneM.AddItem(new MenuItem("laneclearbigminionsE", "E when it can kill siege/super minions", true).SetValue(true));
             LaneM.AddItem(new MenuItem("laneclearlasthit", "E when non-killable by AA", true).SetValue(true));
@@ -408,7 +408,7 @@ namespace Kalimá {
             //3 if's for no checks later...
             if (soulmate == null || Player.IsDead || !R.IsReady()) { return; }
             if (sender.IsMe && args.SData.Name == "KalistaExpungeWrapper") {
-                Utility.DelayAction.Add(250, Orbwalking.ResetAutoAttackTimer); //dont reset because it does double E's and puts E on cooldown
+                Orbwalking.ResetAutoAttackTimer(); //dont reset because it does double E's and puts E on cooldown
             }
             if (!kalm.Item("savesoulbound", true).GetValue<Boolean>()) { return; }
             //credits to hellsing modified to my liking...
