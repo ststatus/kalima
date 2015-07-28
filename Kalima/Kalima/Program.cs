@@ -13,13 +13,14 @@ using Collision = LeagueSharp.Common.Collision;
 #endregion
 namespace Kalimá {
     internal class Kalista {
+
         #region GAME LOAD
         static Dictionary<Vector3, Vector3> jumpPos;
         static readonly Obj_AI_Hero Player = ObjectManager.Player;
         static Orbwalking.Orbwalker Orbwalker;
         static Menu kalimenu;
         static Menu kalm { get { return Kalista.kalimenu; } }
-        static float Manapercent { get { return Player.Mana / Player.MaxMana * 100; } }
+        static float Manapercent { get { return Player.ManaPercent; } }
 
         static Spell Q, W, E, R;
         static Obj_AI_Hero soulmate;//store the soulbound friend..
@@ -366,7 +367,7 @@ namespace Kalimá {
 
             if (kalm.Item("laneclearE", true).GetValue<Boolean>() && E.IsReady() && mymana >= lemana && !Player.IsDashing()) {
                 var minhealth = kalm.Item("laneclearEminhealth", true).GetValue<Slider>().Value;
-                var minionsE = Minions.Where(x => (x.Health + (x.HPRegenRate / 2)) < GetEDamage(x) && ECanCast(x) && x.HealthPercent >= minhealth);
+                var minionsE = Minions.FindAll(x => (x.Health + (x.HPRegenRate / 2)) < GetEDamage(x) && ECanCast(x) && x.HealthPercent >= minhealth);
                 double laneclearE = kalm.Item("laneclearEcast", true).GetValue<Slider>().Value;
                 double incrementE = kalm.Item("laneclearEcastincr", true).GetValue<Slider>().Value;
                 if (minionsE != null && minionsE.Count() >= Math.Round(laneclearE + (Player.Level * (incrementE / 10)))) {
@@ -669,63 +670,15 @@ namespace Kalimá {
             var sd = spearDamage[E.Level - 1];
             var additionalSpearDamage = new[] { 0.20f, 0.225f, 0.25f, 0.275f, 0.30f };
             var asd = additionalSpearDamage[E.Level - 1];
-            double realtotalad = Player.TotalAttackDamage * 0.90;//remove 1% until its fixed in l# to reflect the new 0.9 AD changes
-//            double realtotalad = Player.TotalAttackDamage;
+//            double realtotalad = Player.TotalAttackDamage * 0.90;//remove 1% until its fixed in l# to reflect the new 0.9 AD changes
+            double realtotalad = Player.TotalAttackDamage;
             double playertotalad = realtotalad;
-
-            if (target is Obj_AI_Hero) {
-                if (Player.Masteries.Any()) {
-                    //Martial Mastery
-                    if (Player.Masteries.Any(m => m.Page == MasteryPage.Offense && m.Id == 98 && m.Points == 1)) {
-                        playertotalad = playertotalad + 4;
-                    }
-                    //brute force
-                    var brute = Player.Masteries.First(m => m.Page == MasteryPage.Offense && m.Id == 82);
-                    if (brute != null && brute.Points >= 1) {
-                        switch (brute.Points) {
-                            case 1:
-                                playertotalad = playertotalad + (Player.Level * 0.22);
-                                break;
-                            case 2:
-                                playertotalad = playertotalad + (Player.Level * 0.39);
-                                break;
-                            case 3:
-                                playertotalad = playertotalad + (Player.Level * 0.55);
-                                break;
-                        }
-                    }
-                }
-            }
 
             double totalDamage = bd + abd * realtotalad + (stacks - 1) * (sd + asd * playertotalad);
 
             totalDamage = 100 / (100 + (target.Armor * Player.PercentArmorPenetrationMod) -
                 Player.FlatArmorPenetrationMod) * totalDamage;
 
-            if (target is Obj_AI_Hero) {
-                if (Player.Masteries.Any()) {
-                    //double edged sword
-                    if (Player.Masteries.Any(m => m.Page == MasteryPage.Offense && m.Id == 65 && m.Points == 1)) {
-                        totalDamage = totalDamage * 1.015;
-                    }
-                    //havoc
-                    if (Player.Masteries.Any(m => m.Page == MasteryPage.Offense && m.Id == 146 && m.Points == 1)) {
-                        totalDamage = totalDamage * 1.03;
-                    }
-                    //spell weaving
-                    if (Player.Masteries.Any(m => m.Page == MasteryPage.Offense && m.Id == 97 && m.Points == 1)) {
-                        if (stacks < 3) {
-                            totalDamage = totalDamage * (stacks * 1.01);
-                        } else { totalDamage = totalDamage * 1.03; }
-                    }
-                    //executioner
-                    var mastery = Player.Masteries.Find(m => m.Page == MasteryPage.Offense && m.Id == 100);
-                    if (mastery != null && mastery.Points >= 1 &&
-                        target.Health / target.MaxHealth <= 0.05d + 0.15d * mastery.Points) {
-                        totalDamage = totalDamage * 1.05;
-                    }
-                }
-            }
             return (float)totalDamage;
         }
 
