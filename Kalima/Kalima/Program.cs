@@ -96,7 +96,7 @@ namespace Kalimá {
             LaneM.AddItem(new MenuItem("laneclearlasthit", "E when non-killable by AA", true).SetValue(true));
 
             Menu BotrkM = ItemM.AddSubMenu(new Menu("Botrk", "Botrk"));
-            BotrkM.AddItem(new MenuItem("botrkKS", "Use when target has < x% health + Q+E(dmg)", true).SetValue(new Slider(20, 10, 100)));
+            BotrkM.AddItem(new MenuItem("botrkKS", "Use when target has < x% health + Q+E(dmg)", true).SetValue(new Slider(40, 10, 100)));
             BotrkM.AddItem(new MenuItem("botrkmyheal", "Use when my health is at: < x%", true).SetValue(new Slider(40, 0, 100)));
             BotrkM.AddItem(new MenuItem("botrkactive", "Active", true).SetValue(true));
             Menu Debuffs = ItemM.AddSubMenu(new Menu("Debuffs", "Debuffs"));
