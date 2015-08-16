@@ -73,7 +73,7 @@ namespace Kalimá {
             haraM.AddItem(new MenuItem("harassuseE", "Use E", true).SetValue(true));
             haraM.AddItem(new MenuItem("harassEoutOfRange", "Use E when out of range", true).SetValue(true));
             haraM.AddItem(new MenuItem("harassE", "when being able to kill X minions and E champion", true).SetValue(new Slider(1, 1, 10)));
-            haraM.AddItem(new MenuItem("harassEminhealth", "E req minion % health to prevent E cooldown", true).SetValue(new Slider(10, 1, 50)));
+            haraM.AddItem(new MenuItem("harassEminhealth", "E req minion % health to prevent E cooldown", true).SetValue(new Slider(12, 1, 50)));
             haraM.AddItem(new MenuItem("harassmanaminE", "E requires % mana", true).SetValue(new Slider(30, 0, 100)));
             haraM.AddItem(new MenuItem("harassActive", "Active", true).SetValue(true));
 
@@ -90,7 +90,7 @@ namespace Kalimá {
             LaneM.AddItem(new MenuItem("laneclearE", "Use E", true).SetValue(true));
             LaneM.AddItem(new MenuItem("laneclearEcast", "E cast if minions >= X (min value)", true).SetValue(new Slider(2, 0, 10)));
             LaneM.AddItem(new MenuItem("laneclearEcastincr", "Increase number by Level (decimal):", true).SetValue(new Slider(1, 0, 4)));
-            LaneM.AddItem(new MenuItem("laneclearEminhealth", "E req minion % health to prevent E cooldown", true).SetValue(new Slider(2, 1, 50)));
+            LaneM.AddItem(new MenuItem("laneclearEminhealth", "E req minion % health to prevent E cooldown", true).SetValue(new Slider(12, 1, 50)));
             LaneM.AddItem(new MenuItem("laneclearmanaminE", "E requires % mana", true).SetValue(new Slider(30, 0, 100)));
             LaneM.AddItem(new MenuItem("laneclearbigminionsE", "E when it can kill siege/super minions", true).SetValue(true));
             LaneM.AddItem(new MenuItem("laneclearlasthit", "E when non-killable by AA", true).SetValue(true));
@@ -99,9 +99,25 @@ namespace Kalimá {
             BotrkM.AddItem(new MenuItem("botrkKS", "Use when target has < x% health + Q+E(dmg)", true).SetValue(new Slider(40, 10, 100)));
             BotrkM.AddItem(new MenuItem("botrkmyheal", "Use when my health is at: < x%", true).SetValue(new Slider(40, 0, 100)));
             BotrkM.AddItem(new MenuItem("botrkactive", "Active", true).SetValue(true));
+
             Menu Debuffs = ItemM.AddSubMenu(new Menu("Debuffs", "Debuffs"));
+            Menu Debuffspells = Debuffs.AddSubMenu(new Menu("Debuff Spells", "Debuff Spells"));
             Debuffs.AddItem(new MenuItem("debuffitems", "Supports QSS/Mercurial/Dervish"));
             Debuffs.AddItem(new MenuItem("debuffitemsactive", "Active", true).SetValue(true));
+
+            Debuffspells.AddItem(new MenuItem("debuff_blind", "Blind", true).SetValue(false));
+            Debuffspells.AddItem(new MenuItem("debuff_charm", "Charm", true).SetValue(true));
+            Debuffspells.AddItem(new MenuItem("debuff_fear", "Fear", true).SetValue(true));
+            Debuffspells.AddItem(new MenuItem("debuff_flee", "Flee", true).SetValue(true));
+            Debuffspells.AddItem(new MenuItem("debuff_snare", "Snare", true).SetValue(true));
+            Debuffspells.AddItem(new MenuItem("debuff_taunt", "Taunt", true).SetValue(true));
+            Debuffspells.AddItem(new MenuItem("debuff_suppression", "Suppression", true).SetValue(true));
+            Debuffspells.AddItem(new MenuItem("debuff_stun", "Stun", true).SetValue(true));
+            Debuffspells.AddItem(new MenuItem("debuff_polymorph", "Polymorph", true).SetValue(false));
+            Debuffspells.AddItem(new MenuItem("debuff_silence", "Silence", true).SetValue(false));
+            Debuffspells.AddItem(new MenuItem("debuff_dehancer", "Dehancer", true).SetValue(false));
+            Debuffspells.AddItem(new MenuItem("debuff_zedultexecute", "Zed Ult", true).SetValue(true));
+            Debuffspells.AddItem(new MenuItem("debuff_dispellExhaust", "Exhaust", true).SetValue(true));
 
             MiscM.AddItem(new MenuItem("AutoLevel", "Auto Level Skills", true).SetValue(true));
             MiscM.AddItem(new MenuItem("autoW", "Auto W", true).SetValue(true));
@@ -113,7 +129,6 @@ namespace Kalimá {
             Menu TimersM = MiscM.AddSubMenu(new Menu("Timer Limits", "Timer Limits"));
             TimersM.AddItem(new MenuItem("onupdateT", "OnUpdate Timer (max times per second)", true).SetValue(new Slider(30, 1, 100)));
             TimersM.AddItem(new MenuItem("ondrawT", "OnDraw Timer (max times per second)", true).SetValue(new Slider(30, 1, 500)));
-
 
             DrawM.AddItem(new MenuItem("drawAA", "Auto Attack Range").SetValue(new Circle(false, Color.FromArgb(207, 207, 23))));
             DrawM.AddItem(new MenuItem("drawjumpspots", "Jump Spots").SetValue(new Circle(false, Color.FromArgb(0, 0, 255))));
@@ -206,6 +221,8 @@ namespace Kalimá {
                     break;
             }
             onupdatetimers = Game.ClockTime;
+            //buffadd just sucks and adds buffs too late..not feasible for balista or debuffs....
+            debuff();
         }
         #endregion
 
@@ -319,6 +336,7 @@ namespace Kalimá {
                 var bigkahuna = MINIONS.Find(x => (ECanCast(x) || Q.CanCast(x)) && (x.CharData.BaseSkinName.ToLower().Contains("dragon") || x.CharData.BaseSkinName.ToLower().Contains("baron")));
                 if (bigkahuna != null) {
                     var kahunaE = GetEDamage(bigkahuna);
+                    if (Player.HasBuff("barontarget")) { kahunaE = kahunaE * 0.5f; }
                     var kahunaQ = Q.GetDamage(bigkahuna);
                     var kahunahealth = (bigkahuna.Health + (bigkahuna.HPRegenRate / 2));
                     if (ECanCast(bigkahuna) && kahunahealth < kahunaE) { ECast(); }
@@ -416,7 +434,7 @@ namespace Kalimá {
             if (sender is Obj_AI_Hero && sender.IsEnemy && args.Target.NetworkId == soulmate.NetworkId) {
                 var enemy = (Obj_AI_Hero)sender;
                 var slot = enemy.GetSpellSlot(args.SData.Name);
-                if (slot != null && slot == enemy.GetSpellSlot("SummonerDot")) {
+                if (slot == enemy.GetSpellSlot("SummonerDot")) {
                     var dmgonsoul = (float)enemy.GetSummonerSpellDamage(soulmate, Damage.SummonerSpell.Ignite);
                     if (dmgonsoul > soulmate.Health && R.IsReady()) { R.Cast(); }
                 }
@@ -439,6 +457,43 @@ namespace Kalimá {
         }
 
         static void Event_OnBuffAdd(Obj_AI_Base sender, Obj_AI_BaseBuffAddEventArgs args) {
+            if (Player.IsDead) { return; }
+            var target = sender as Obj_AI_Hero;
+            //moved debuff to onupdate....
+            if (target.CharData.BaseSkinName == Player.CharData.BaseSkinName) {}
+        }
+
+        static void debuff() {
+            var debuff = false;
+            if (kalm.Item("debuff_blind", true).GetValue<Boolean>() && Player.HasBuffOfType(BuffType.Blind)) { debuff = true; }
+            if (kalm.Item("debuff_charm", true).GetValue<Boolean>() && Player.HasBuffOfType(BuffType.Charm)) { debuff = true; }
+            if (kalm.Item("debuff_fear", true).GetValue<Boolean>() && Player.HasBuffOfType(BuffType.Fear)) { debuff = true; }
+            if (kalm.Item("debuff_flee", true).GetValue<Boolean>() && Player.HasBuffOfType(BuffType.Flee)) { debuff = true; }
+            if (kalm.Item("debuff_snare", true).GetValue<Boolean>() && Player.HasBuffOfType(BuffType.Snare)) { debuff = true; }
+            if (kalm.Item("debuff_taunt", true).GetValue<Boolean>() && Player.HasBuffOfType(BuffType.Taunt)) { debuff = true; }
+            if (kalm.Item("debuff_suppression", true).GetValue<Boolean>() && Player.HasBuffOfType(BuffType.Suppression)) { debuff = true; }
+            if (kalm.Item("debuff_stun", true).GetValue<Boolean>() && Player.HasBuffOfType(BuffType.Stun)) { debuff = true; }
+            if (kalm.Item("debuff_polymorph", true).GetValue<Boolean>() && Player.HasBuffOfType(BuffType.Polymorph)) { debuff = true; }
+            if (kalm.Item("debuff_silence", true).GetValue<Boolean>() && Player.HasBuffOfType(BuffType.Silence)) { debuff = true; }
+            if (kalm.Item("debuff_dehancer", true).GetValue<Boolean>() && Player.HasBuffOfType(BuffType.CombatDehancer)) { debuff = true; }
+            if (kalm.Item("debuff_zedultexecute", true).GetValue<Boolean>() && Player.HasBuff("zedultexecute")) { debuff = true; }
+            if (kalm.Item("debuff_dispellExhaust", true).GetValue<Boolean>() && Player.HasBuff("summonerexhaust")) { debuff = true; }
+
+            if (debuff) {
+                if (kalm.Item("debuffitemsactive", true).GetValue<Boolean>()) {
+                    if (qss.IsReady()) {
+                        qss.Cast(Player);
+                        DraWing.drawtext("debuff", 3, Drawing.Width * 0.45f, Drawing.Height * 0.90f, Color.PapayaWhip, "Debuffing with QSS");
+                    } else if (mercurial.IsReady()) {
+                        mercurial.Cast(Player);
+                        DraWing.drawtext("debuff", 3, Drawing.Width * 0.45f, Drawing.Height * 0.90f, Color.PapayaWhip, "Debuffing with MERCURIAL");
+                    } else if (dervish.IsReady()) {
+                        dervish.Cast(Player);
+                        DraWing.drawtext("debuff", 3, Drawing.Width * 0.45f, Drawing.Height * 0.90f, Color.PapayaWhip, "Debuffing with DERVISH");
+                    }
+                }
+            }
+
         }
 
         static void Event_OnLevelUp() {
@@ -448,12 +503,12 @@ namespace Kalimá {
                     Player.Spellbook.LevelUpSpell(SpellSlot.W);
                     MyLevel++;
                 } else {
-                    MyLevel++;
-                    if (MyLevel == 2) { Player.Spellbook.LevelUpSpell(SpellSlot.Q); }
+                    if (MyLevel == 3) { Player.Spellbook.LevelUpSpell(SpellSlot.Q); }
                     Player.Spellbook.LevelUpSpell(SpellSlot.R);
                     Player.Spellbook.LevelUpSpell(SpellSlot.E);
                     Player.Spellbook.LevelUpSpell(SpellSlot.Q);
                     Player.Spellbook.LevelUpSpell(SpellSlot.W);
+                    MyLevel++;
                 }
             }
         }
@@ -491,7 +546,7 @@ namespace Kalimá {
             }
 
             if (soulmate != null) {
-                if ((soulmate.ChampionName == "Blitzcrank" || 
+                if ((soulmate.ChampionName == "Blitzcrank" ||
                     soulmate.ChampionName == "Skarner" ||
                     soulmate.ChampionName == "TahmKench"
                     ) && R.IsReady()) {
@@ -573,7 +628,7 @@ namespace Kalimá {
                                         break;
                                     }
                                 }
-                                DraWing.drawtext("drawEspears", ondrawmenutimer, enemy.HPBarPosition.X + 150, enemy.HPBarPosition.Y + 19, dEsps.Color, "[E: " + spearcount + " / L: " + (kill+1) + "]");
+                                DraWing.drawtext("drawEspears", ondrawmenutimer, enemy.HPBarPosition.X + 150, enemy.HPBarPosition.Y + 19, dEsps.Color, "[E: " + spearcount + " / L: " + (kill + 1) + "]");
                                 break;
                             }
                         }
