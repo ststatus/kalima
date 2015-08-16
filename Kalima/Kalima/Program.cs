@@ -73,7 +73,7 @@ namespace Kalimá {
             haraM.AddItem(new MenuItem("harassuseE", "Use E", true).SetValue(true));
             haraM.AddItem(new MenuItem("harassEoutOfRange", "Use E when out of range", true).SetValue(true));
             haraM.AddItem(new MenuItem("harassE", "when being able to kill X minions and E champion", true).SetValue(new Slider(1, 1, 10)));
-            haraM.AddItem(new MenuItem("harassEminhealth", "E req minion % health to prevent E cooldown", true).SetValue(new Slider(12, 1, 50)));
+            haraM.AddItem(new MenuItem("harassEminhealth", "E req minion % health to prevent E cooldown", true).SetValue(new Slider(8, 1, 50)));
             haraM.AddItem(new MenuItem("harassmanaminE", "E requires % mana", true).SetValue(new Slider(30, 0, 100)));
             haraM.AddItem(new MenuItem("harassActive", "Active", true).SetValue(true));
 
@@ -90,7 +90,7 @@ namespace Kalimá {
             LaneM.AddItem(new MenuItem("laneclearE", "Use E", true).SetValue(true));
             LaneM.AddItem(new MenuItem("laneclearEcast", "E cast if minions >= X (min value)", true).SetValue(new Slider(2, 0, 10)));
             LaneM.AddItem(new MenuItem("laneclearEcastincr", "Increase number by Level (decimal):", true).SetValue(new Slider(1, 0, 4)));
-            LaneM.AddItem(new MenuItem("laneclearEminhealth", "E req minion % health to prevent E cooldown", true).SetValue(new Slider(12, 1, 50)));
+            LaneM.AddItem(new MenuItem("laneclearEminhealth", "E req minion % health to prevent E cooldown", true).SetValue(new Slider(8, 1, 50)));
             LaneM.AddItem(new MenuItem("laneclearmanaminE", "E requires % mana", true).SetValue(new Slider(30, 0, 100)));
             LaneM.AddItem(new MenuItem("laneclearbigminionsE", "E when it can kill siege/super minions", true).SetValue(true));
             LaneM.AddItem(new MenuItem("laneclearlasthit", "E when non-killable by AA", true).SetValue(true));
@@ -432,7 +432,7 @@ namespace Kalimá {
             if (!kalm.Item("savesoulbound", true).GetValue<Boolean>()) { return; }
             //credits to hellsing modified to my liking...
             if (sender is Obj_AI_Hero && sender.IsEnemy && args.Target.NetworkId == soulmate.NetworkId) {
-                var enemy = (Obj_AI_Hero)sender;
+                var enemy = (Obj_AI_Hero)sender; 
                 var slot = enemy.GetSpellSlot(args.SData.Name);
                 if (slot == enemy.GetSpellSlot("SummonerDot")) {
                     var dmgonsoul = (float)enemy.GetSummonerSpellDamage(soulmate, Damage.SummonerSpell.Ignite);
