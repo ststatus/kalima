@@ -20,7 +20,7 @@ namespace Kalimá {
         static Orbwalking.Orbwalker Orbwalker;
         static Menu kalimenu;
         static Menu kalm { get { return Kalista.kalimenu; } }
-        static float Manapercent { get { return Player.ManaPercent; } }
+        static float Manapercent { get { return Player.ManaPercentage(); } }
 
         static Spell Q, W, E, R;
         static Obj_AI_Hero soulmate;//store the soulbound friend..
@@ -107,20 +107,21 @@ namespace Kalimá {
 
             Debuffspells.AddItem(new MenuItem("debuff_blind", "Blind", true).SetValue(false));
             Debuffspells.AddItem(new MenuItem("debuff_charm", "Charm", true).SetValue(true));
+            Debuffspells.AddItem(new MenuItem("debuff_dehancer", "Dehancer", true).SetValue(false));
+            Debuffspells.AddItem(new MenuItem("debuff_dispellExhaust", "Exhaust", true).SetValue(true));
             Debuffspells.AddItem(new MenuItem("debuff_fear", "Fear", true).SetValue(true));
             Debuffspells.AddItem(new MenuItem("debuff_flee", "Flee", true).SetValue(true));
+            Debuffspells.AddItem(new MenuItem("debuff_polymorph", "Polymorph", true).SetValue(false));
             Debuffspells.AddItem(new MenuItem("debuff_snare", "Snare", true).SetValue(true));
-            Debuffspells.AddItem(new MenuItem("debuff_taunt", "Taunt", true).SetValue(true));
             Debuffspells.AddItem(new MenuItem("debuff_suppression", "Suppression", true).SetValue(true));
             Debuffspells.AddItem(new MenuItem("debuff_stun", "Stun", true).SetValue(true));
-            Debuffspells.AddItem(new MenuItem("debuff_polymorph", "Polymorph", true).SetValue(false));
             Debuffspells.AddItem(new MenuItem("debuff_silence", "Silence", true).SetValue(false));
-            Debuffspells.AddItem(new MenuItem("debuff_dehancer", "Dehancer", true).SetValue(false));
+            Debuffspells.AddItem(new MenuItem("debuff_taunt", "Taunt", true).SetValue(true));
             Debuffspells.AddItem(new MenuItem("debuff_zedultexecute", "Zed Ult", true).SetValue(true));
-            Debuffspells.AddItem(new MenuItem("debuff_dispellExhaust", "Exhaust", true).SetValue(true));
 
             MiscM.AddItem(new MenuItem("AutoLevel", "Auto Level Skills", true).SetValue(true));
-            MiscM.AddItem(new MenuItem("autoW", "Auto W", true).SetValue(true));
+            MiscM.AddItem(new MenuItem("autoW", "Auto W (Toggle)", true).SetValue(true));
+            MiscM.AddItem(new MenuItem("autoWKey", "Auto W Key").SetValue(new KeyBind("Y".ToCharArray()[0], KeyBindType.Press)));
             MiscM.AddItem(new MenuItem("autowenemyclose", "Dont Send W with an enemy in X Range:", true).SetValue(new Slider(2000, 0, 5000)));
             MiscM.AddItem(new MenuItem("killsteal", "Kill Steal", true).SetValue(true));
             MiscM.AddItem(new MenuItem("savesoulbound", "Save Soulbound (With R)", true).SetValue(true));
@@ -199,7 +200,7 @@ namespace Kalimá {
             if (kalm.Item("jungleActive", true).GetValue<Boolean>()) {
                 Jungleclear();
             }
-            if (kalm.Item("autoW", true).GetValue<Boolean>()) {
+            if (kalm.Item("autoW", true).GetValue<Boolean>() || kalm.Item("autoWKey").GetValue<KeyBind>().Active) {
                 AutoW();
             }
             if (kalm.Item("fleeKey").GetValue<KeyBind>().Active) {
@@ -810,8 +811,7 @@ namespace Kalimá {
         }
         static float? autoWtimers;
         static void AutoW() {
-            var useW = kalm.Item("autoW", true).GetValue<Boolean>();
-            if (useW && W.IsReady()) {
+            if (W.IsReady()) {
                 if (autoWtimers != null) {
                     if ((Game.ClockTime - autoWtimers) > 2) {
                         autoWtimers = null;
