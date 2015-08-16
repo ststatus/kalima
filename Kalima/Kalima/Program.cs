@@ -464,6 +464,7 @@ namespace Kalimá {
         }
 
         static void debuff() {
+            //credits to Mactivator for "useful" spell names instead of adding a bunch of crap or having to parse each one
             var debuff = false;
             if (kalm.Item("debuff_blind", true).GetValue<Boolean>() && Player.HasBuffOfType(BuffType.Blind)) { debuff = true; }
             if (kalm.Item("debuff_charm", true).GetValue<Boolean>() && Player.HasBuffOfType(BuffType.Charm)) { debuff = true; }
