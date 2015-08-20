@@ -120,6 +120,7 @@ namespace Kalimá {
             Debuffspells.AddItem(new MenuItem("debuff_zedultexecute", "Zed Ult", true).SetValue(true));
 
             MiscM.AddItem(new MenuItem("AutoLevel", "Auto Level Skills", true).SetValue(true));
+            MiscM.AddItem(new MenuItem("autoresetAA", "Auto Reset AA", true).SetValue(true));
             MiscM.AddItem(new MenuItem("autoW", "Auto W (Toggle)", true).SetValue(true));
             MiscM.AddItem(new MenuItem("autoWKey", "Auto W Key").SetValue(new KeyBind("Y".ToCharArray()[0], KeyBindType.Press)));
             MiscM.AddItem(new MenuItem("autowenemyclose", "Dont Send W with an enemy in X Range:", true).SetValue(new Slider(2000, 0, 5000)));
@@ -428,7 +429,9 @@ namespace Kalimá {
             //3 if's for no checks later...
             if (soulmate == null || Player.IsDead || !R.IsReady()) { return; }
             if (sender.IsMe && args.SData.Name == "KalistaExpungeWrapper") {
-                Orbwalking.ResetAutoAttackTimer(); //dont reset because it does double E's and puts E on cooldown
+                if (kalm.Item("autoresetAA", true).GetValue<Boolean>()) {
+                    Orbwalking.ResetAutoAttackTimer(); //dont reset because it does double E's and puts E on cooldown
+                }
             }
             if (!kalm.Item("savesoulbound", true).GetValue<Boolean>()) { return; }
             //credits to hellsing modified to my liking...
@@ -483,15 +486,17 @@ namespace Kalimá {
 
             if (debuff) {
                 if (kalm.Item("debuffitemsactive", true).GetValue<Boolean>()) {
-                    if (qss.IsReady()) {
-                        qss.Cast(Player);
-                        DraWing.drawtext("debuff", 3, Drawing.Width * 0.45f, Drawing.Height * 0.90f, Color.PapayaWhip, "Debuffing with QSS");
-                    } else if (mercurial.IsReady()) {
-                        mercurial.Cast(Player);
-                        DraWing.drawtext("debuff", 3, Drawing.Width * 0.45f, Drawing.Height * 0.90f, Color.PapayaWhip, "Debuffing with MERCURIAL");
-                    } else if (dervish.IsReady()) {
-                        dervish.Cast(Player);
-                        DraWing.drawtext("debuff", 3, Drawing.Width * 0.45f, Drawing.Height * 0.90f, Color.PapayaWhip, "Debuffing with DERVISH");
+                    var s = false;
+                    var i = "";
+                    if (qss.IsReady()) {s = true; i = "qss";
+                        Items.UseItem(3141);
+                    } else if (mercurial.IsReady()) {s = true; i = "merc";
+                        Items.UseItem(3139);
+                    } else if (dervish.IsReady()) {s = true; i = "derv";
+                        Items.UseItem(3137);
+                    }
+                    if (s) {
+                        Notifications.AddNotification(new Notification("Debuffing with: " + i, 5000).SetTextColor(Color.FromArgb(255, 0, 0)));
                     }
                 }
             }
@@ -727,25 +732,24 @@ namespace Kalimá {
             var sd = spearDamage[E.Level - 1];
             var additionalSpearDamage = new[] { 0.20f, 0.225f, 0.25f, 0.275f, 0.30f };
             var asd = additionalSpearDamage[E.Level - 1];
-//            double realtotalad = Player.TotalAttackDamage * 0.90;//remove 1% until its fixed in l# to reflect the new 0.9 AD changes
             double realtotalad = Player.TotalAttackDamage;
             double playertotalad = realtotalad;
 
             double totalDamage = bd + abd * realtotalad + (stacks - 1) * (sd + asd * playertotalad);
 
-            totalDamage = 100 / (100 + (target.Armor * Player.PercentArmorPenetrationMod) -
-                Player.FlatArmorPenetrationMod) * totalDamage;
+            totalDamage = 100 / (100 + (target.Armor * Player.PercentArmorPenetrationMod) - Player.FlatArmorPenetrationMod) * totalDamage;
 
             return (float)totalDamage;
         }
 
         //idea from hellsing
         static bool hasundyingbuff(Obj_AI_Hero target) {
+            //checks for undying buffs and shields
+            var hasbufforshield = TargetSelector.IsInvulnerable(target,TargetSelector.DamageType.Magical,false);
+            if (hasbufforshield) { return true; }
             var hasbuff = HeroManager.Enemies.Find(a =>
                 target.CharData.BaseSkinName == a.CharData.BaseSkinName && a.Buffs.Any(b =>
-                    b.Name.ToLower().Contains("undying rage") ||
                     b.Name.ToLower().Contains("chrono shift") ||
-                    b.Name.ToLower().Contains("judicatorintervention") ||
                     b.Name.ToLower().Contains("poppyditarget")));
             if (hasbuff != null) { return true; }
             return false;
