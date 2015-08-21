@@ -121,10 +121,12 @@ namespace Kalimá {
 
             MiscM.AddItem(new MenuItem("AutoLevel", "Auto Level Skills", true).SetValue(true));
             MiscM.AddItem(new MenuItem("autoresetAA", "Auto Reset AA", true).SetValue(true));
-            MiscM.AddItem(new MenuItem("autoW", "Auto W (Toggle)", true).SetValue(true));
-            MiscM.AddItem(new MenuItem("autoWKey", "Auto W Key").SetValue(new KeyBind("Y".ToCharArray()[0], KeyBindType.Press)));
-            MiscM.AddItem(new MenuItem("autoWmana", "Min Mana for AutoW", true).SetValue(new Slider(50, 1, 100)));
-            MiscM.AddItem(new MenuItem("autowenemyclose", "Dont Send W with an enemy in X Range:", true).SetValue(new Slider(2000, 0, 5000)));
+            Menu AutoW = MiscM.AddSubMenu(new Menu("Auto W", "Auto W"));
+            AutoW.AddItem(new MenuItem("autoW", "Auto W (Toggle)", true).SetValue(true));
+            AutoW.AddItem(new MenuItem("autoWmana", "Min Mana for AutoW", true).SetValue(new Slider(50, 1, 100)));
+            AutoW.AddItem(new MenuItem("autoWKey", "Auto W HotKey").SetValue(new KeyBind("Y".ToCharArray()[0], KeyBindType.Press)));
+            AutoW.AddItem(new MenuItem("autowenemyclose", "Dont Send W with an enemy in X Range:", true).SetValue(new Slider(2000, 0, 5000)));
+
             MiscM.AddItem(new MenuItem("killsteal", "Kill Steal", true).SetValue(true));
             MiscM.AddItem(new MenuItem("savesoulbound", "Save Soulbound (With R)", true).SetValue(true));
             MiscM.AddItem(new MenuItem("savesoulboundat", "Save when health < %", true).SetValue(new Slider(25, 0, 100)));
@@ -824,18 +826,20 @@ namespace Kalimá {
                 }
                 var closestenemy = HeroManager.Enemies.Find(x => Player.ServerPosition.Distance(x.ServerPosition) < kalm.Item("autowenemyclose", true).GetValue<Slider>().Value);
                 if (closestenemy != null) { return; }
-                if ((Player.ManaPercent < kalm.Item("autoWmana", true).GetValue<Slider>().Value) || Player.IsDashing() || Player.IsWindingUp || Player.InFountain()) { return; }
-                fillsentinels();
+                if (Player.IsDashing() || Player.IsWindingUp || Player.InFountain()) { return; }
+                if (kalm.Item("autoWKey").GetValue<KeyBind>().Active || (Player.ManaPercent > kalm.Item("autoWmana", true).GetValue<Slider>().Value)) {
+                    fillsentinels();
 
-                Random rnd = new Random();
-                var sentineldestinations = _mysentinels.Where(s => !s.Name.Contains("RobotBuddy")).OrderBy(s => rnd.Next()).ToList();
-                foreach (var destinations in sentineldestinations) {
-                    var distancefromme = Vector3.Distance(Player.Position, destinations.Position);
-                    if (sentinelcloserthan(destinations.Position, 1500) == 0 && distancefromme < W.Range) {
-                        autoWtimers = Game.ClockTime;
-                        W.Cast(destinations.Position);
-                        Notifications.AddNotification(new Notification("sending bug to:" + destinations.Name, 5000).SetTextColor(Color.FromArgb(255, 0, 0)));
-                        return;
+                    Random rnd = new Random();
+                    var sentineldestinations = _mysentinels.Where(s => !s.Name.Contains("RobotBuddy")).OrderBy(s => rnd.Next()).ToList();
+                    foreach (var destinations in sentineldestinations) {
+                        var distancefromme = Vector3.Distance(Player.Position, destinations.Position);
+                        if (sentinelcloserthan(destinations.Position, 1500) == 0 && distancefromme < W.Range) {
+                            autoWtimers = Game.ClockTime;
+                            W.Cast(destinations.Position);
+                            Notifications.AddNotification(new Notification("sending bug to:" + destinations.Name, 5000).SetTextColor(Color.FromArgb(255, 0, 0)));
+                            return;
+                        }
                     }
                 }
             }
