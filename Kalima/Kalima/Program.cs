@@ -169,6 +169,7 @@ namespace Kalimá {
 
                 foreach (var enemy in HeroManager.Enemies.FindAll(x => x.IsEnemy)) {
                     targetselect.AddItem(new MenuItem("target" + enemy.ChampionName, enemy.ChampionName).SetValue(true));
+                    targetselect.AddItem(new MenuItem("maxhealth" + enemy.ChampionName, "Max Health to pull",true).SetValue(new Slider(70, 1, 100)));
                 }
                 balista.AddItem(new MenuItem("balistaminrange", "Min Range", true).SetValue(new Slider(450, 500, 1400)));
                 balista.AddItem(new MenuItem("balistamaxrange", "Max Range", true).SetValue(new Slider(1250, 500, 1250)));
@@ -570,7 +571,10 @@ namespace Kalimá {
                         if (enemy != null) {
                             //do both checks since we might have both in a game...
                             var doult = 0;
-                            if (kalimenu.Item("target" + enemy.ChampionName).GetValue<bool>() && enemy.Health > 200 && isbalista(enemy)) {
+                            if (kalimenu.Item("target" + enemy.ChampionName).GetValue<bool>() && 
+                                enemy.HealthPercent <= kalm.Item("maxhealth" + enemy.ChampionName, true).GetValue<Slider>().Value &&
+                                enemy.Health > 200 &&
+                                isbalista(enemy)) {
                                 if (enemy.HasBuff("rocketgrab2") && soulmate.ChampionName == "Blitzcrank") { doult = 1; }
                                 if (enemy.HasBuff("skarnerimpale") && soulmate.ChampionName == "Skarner") { doult = 1; }
                                 if (enemy.HasBuff("tahmkenchwdevoured") && soulmate.ChampionName == "TahmKench") { doult = 1; }
