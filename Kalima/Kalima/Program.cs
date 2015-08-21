@@ -123,6 +123,7 @@ namespace Kalimá {
             MiscM.AddItem(new MenuItem("autoresetAA", "Auto Reset AA", true).SetValue(true));
             MiscM.AddItem(new MenuItem("autoW", "Auto W (Toggle)", true).SetValue(true));
             MiscM.AddItem(new MenuItem("autoWKey", "Auto W Key").SetValue(new KeyBind("Y".ToCharArray()[0], KeyBindType.Press)));
+            MiscM.AddItem(new MenuItem("autoWmana", "Min Mana for AutoW", true).SetValue(new Slider(50, 1, 100)));
             MiscM.AddItem(new MenuItem("autowenemyclose", "Dont Send W with an enemy in X Range:", true).SetValue(new Slider(2000, 0, 5000)));
             MiscM.AddItem(new MenuItem("killsteal", "Kill Steal", true).SetValue(true));
             MiscM.AddItem(new MenuItem("savesoulbound", "Save Soulbound (With R)", true).SetValue(true));
@@ -823,7 +824,7 @@ namespace Kalimá {
                 }
                 var closestenemy = HeroManager.Enemies.Find(x => Player.ServerPosition.Distance(x.ServerPosition) < kalm.Item("autowenemyclose", true).GetValue<Slider>().Value);
                 if (closestenemy != null) { return; }
-                if ((Player.ManaPercent < 50) || Player.IsDashing() || Player.IsWindingUp || Player.InFountain()) { return; }
+                if ((Player.ManaPercent < kalm.Item("autoWmana", true).GetValue<Slider>().Value) || Player.IsDashing() || Player.IsWindingUp || Player.InFountain()) { return; }
                 fillsentinels();
 
                 Random rnd = new Random();
