@@ -20,16 +20,16 @@ namespace Kalimá {
         static Orbwalking.Orbwalker Orbwalker;
         static Menu kalimenu;
         static Menu kalm { get { return Kalista.kalimenu; } }
-        static float Manapercent { get { return Player.ManaPercentage(); } }
+        static float Manapercent { get { return Player.ManaPercent; } }
 
         static Spell Q, W, E, R;
         static Obj_AI_Hero soulmate;//store the soulbound friend..
         static float soulmateRange = 1250f;
         static int MyLevel = 0;
-        static Items.Item botrk = new Items.Item(3153, 425);
+        static Items.Item botrk = new Items.Item(3153, 550);
         static Items.Item mercurial = new Items.Item(3139,0f);//debuff
         static Items.Item dervish = new Items.Item(3137, 0f);//debuff
-        static Items.Item qss = new Items.Item(3141,0f);//debuff
+        static Items.Item qss = new Items.Item(3140,0f);//debuff
 
         static void Game_OnGameLoad(EventArgs args) {//"1 3 1 2 1 4 1 3 1 3 4 3 3 2 2 4 2 2";
             if (Player.ChampionName != "Kalista") { return; }
@@ -73,7 +73,7 @@ namespace Kalimá {
             haraM.AddItem(new MenuItem("harassuseE", "Use E", true).SetValue(true));
             haraM.AddItem(new MenuItem("harassEoutOfRange", "Use E when out of range", true).SetValue(true));
             haraM.AddItem(new MenuItem("harassE", "when being able to kill X minions and E champion", true).SetValue(new Slider(1, 1, 10)));
-            haraM.AddItem(new MenuItem("harassEminhealth", "E req minion % health to prevent E cooldown", true).SetValue(new Slider(8, 1, 50)));
+            haraM.AddItem(new MenuItem("harassEminhealth", "E req minion % health to prevent E cooldown", true).SetValue(new Slider(7, 1, 50)));
             haraM.AddItem(new MenuItem("harassmanaminE", "E requires % mana", true).SetValue(new Slider(30, 0, 100)));
             haraM.AddItem(new MenuItem("harassActive", "Active", true).SetValue(true));
 
@@ -90,7 +90,7 @@ namespace Kalimá {
             LaneM.AddItem(new MenuItem("laneclearE", "Use E", true).SetValue(true));
             LaneM.AddItem(new MenuItem("laneclearEcast", "E cast if minions >= X (min value)", true).SetValue(new Slider(2, 0, 10)));
             LaneM.AddItem(new MenuItem("laneclearEcastincr", "Increase number by Level (decimal):", true).SetValue(new Slider(1, 0, 4)));
-            LaneM.AddItem(new MenuItem("laneclearEminhealth", "E req minion % health to prevent E cooldown", true).SetValue(new Slider(8, 1, 50)));
+            LaneM.AddItem(new MenuItem("laneclearEminhealth", "E req minion % health to prevent E cooldown", true).SetValue(new Slider(7, 1, 50)));
             LaneM.AddItem(new MenuItem("laneclearmanaminE", "E requires % mana", true).SetValue(new Slider(30, 0, 100)));
             LaneM.AddItem(new MenuItem("laneclearbigminionsE", "E when it can kill siege/super minions", true).SetValue(true));
             LaneM.AddItem(new MenuItem("laneclearlasthit", "E when non-killable by AA", true).SetValue(true));
@@ -106,6 +106,7 @@ namespace Kalimá {
             Debuffs.AddItem(new MenuItem("debuffitemsactive", "Active", true).SetValue(true));
 
             Debuffspells.AddItem(new MenuItem("debuff_blind", "Blind", true).SetValue(false));
+            Debuffspells.AddItem(new MenuItem("debuff_rocketgrab2", "Blitz Grab", true).SetValue(true));
             Debuffspells.AddItem(new MenuItem("debuff_charm", "Charm", true).SetValue(true));
             Debuffspells.AddItem(new MenuItem("debuff_dehancer", "Dehancer", true).SetValue(false));
             Debuffspells.AddItem(new MenuItem("debuff_dispellExhaust", "Exhaust", true).SetValue(true));
@@ -126,6 +127,17 @@ namespace Kalimá {
             AutoW.AddItem(new MenuItem("autoWmana", "Min Mana for AutoW", true).SetValue(new Slider(50, 1, 100)));
             AutoW.AddItem(new MenuItem("autoWKey", "Auto W HotKey").SetValue(new KeyBind("Y".ToCharArray()[0], KeyBindType.Press)));
             AutoW.AddItem(new MenuItem("autowenemyclose", "Dont Send W with an enemy in X Range:", true).SetValue(new Slider(2000, 0, 5000)));
+            AutoW.AddItem(new MenuItem("autowsentinelclose", "Dont Send W with a sentinel in X Range of it:", true).SetValue(new Slider(1500, 500, 5000)));
+            AutoW.AddItem(new MenuItem("autowspottooclosetome", "Dont Send W with me in X Range of spot:", true).SetValue(new Slider(1500, 500, 5000)));
+
+            Menu AutoWSpots = AutoW.AddSubMenu(new Menu("Auto W Spots", "Auto W Spots"));
+            AutoWSpots.AddItem(new MenuItem("Blue_Camp_Blue_Buff", "Blue Camp Blue Buff", true).SetValue(true));
+            AutoWSpots.AddItem(new MenuItem("Blue_Camp_Red_Buff", "Blue Camp Red Buff", true).SetValue(false));
+            AutoWSpots.AddItem(new MenuItem("Red_Camp_Blue_Buff", "Red Camp Blue Buff", true).SetValue(true));
+            AutoWSpots.AddItem(new MenuItem("Red_Camp_Red_Buff", "Red Camp Red Buff", true).SetValue(true));
+            AutoWSpots.AddItem(new MenuItem("Dragon", "Dragon", true).SetValue(true));
+            AutoWSpots.AddItem(new MenuItem("Baron", "Baron", true).SetValue(true));
+            AutoWSpots.AddItem(new MenuItem("Mid_Bot_River", "Baron", true).SetValue(true));
 
             MiscM.AddItem(new MenuItem("killsteal", "Kill Steal", true).SetValue(true));
             MiscM.AddItem(new MenuItem("savesoulbound", "Save Soulbound (With R)", true).SetValue(true));
@@ -199,7 +211,7 @@ namespace Kalimá {
             }
             if (Player.IsRecalling()) { return; }
 
-            if (kalm.Item("harassActive", true).GetValue<Boolean>()) {
+            if (kalm.Item("harassActive", true).GetValue<Boolean>() || Orbwalker.ActiveMode == Orbwalking.OrbwalkingMode.Mixed) {
                 harass();
             }
             if (kalm.Item("jungleActive", true).GetValue<Boolean>()) {
@@ -212,9 +224,9 @@ namespace Kalimá {
                 ShowjumpsandFlee();
             }
 
-            var closebyenemy = Orbwalker.GetTarget();
-            if (closebyenemy != null && closebyenemy is Obj_AI_Hero && Player.Position.Distance(closebyenemy.Position) < E.Range) {
-                Event_OnItems((Obj_AI_Hero)closebyenemy);
+            var closebyenemy = TargetSelector.GetTarget(E.Range,TargetSelector.DamageType.Physical);
+            if (closebyenemy != null) {
+                Event_OnItems(closebyenemy);
             }
 
             switch (Orbwalker.ActiveMode) {
@@ -222,8 +234,6 @@ namespace Kalimá {
                     laneclear();
                     break;
                 case Orbwalking.OrbwalkingMode.LastHit:
-                    break;
-                case Orbwalking.OrbwalkingMode.Mixed:
                     break;
             }
             onupdatetimers = Game.ClockTime;
@@ -407,25 +417,22 @@ namespace Kalimá {
         #region MISC EVENTS
 
         static void Event_OnItems(Obj_AI_Hero target) {
-            if (Player.IsDead) { return; }
-            if (Player.IsAttackingPlayer) {//offensive items go here...
-                var targethealth = target.Health;
-                var qdmg = Q.GetDamage(target);
-                var edmg = GetEDamage(target);
-                if (kalm.Item("botrkactive", true).GetValue<Boolean>() && botrk.IsReady() && botrk.IsInRange(target.Position)) {
-                    //selfish self-preservation
-                    if (Player.HealthPercent < kalm.Item("botrkmyheal", true).GetValue<Slider>().Value) { botrk.Cast(target); }
-                    //total dmg that I can do to target
-                    var totaldmg = qdmg + edmg;
-                    //get in health how much is x% of his total health
-                    var healthdmg = (kalm.Item("botrkKS", true).GetValue<Slider>().Value / 100) * target.MaxHealth;
-                    //if his health is less than x%+q+e then just botrkhim
-                    if (target.Health < healthdmg+totaldmg) {
-                        botrk.Cast(target);
-                        DraWing.drawtext("botrkwho", 3, Drawing.Width * 0.45f, Drawing.Height * 0.80f, Color.PapayaWhip, "Using botrk on: " + target.ChampionName);
-                    }
+            if (!botrk.IsOwned()) { return; }
+            var targethealth = target.Health;
+            var qdmg = Q.GetDamage(target);
+            var edmg = GetEDamage(target);
+            if (kalm.Item("botrkactive", true).GetValue<Boolean>() && botrk.IsReady() && botrk.IsInRange(target)) {
+                //selfish self-preservation
+                if (Player.HealthPercent < kalm.Item("botrkmyheal", true).GetValue<Slider>().Value) { botrk.Cast(target); }
+                //total dmg that I can do to target
+                var totaldmg = qdmg + edmg;
+                //get in health how much is x% of his total health
+                var healthdmg = (kalm.Item("botrkKS", true).GetValue<Slider>().Value / 100) * target.MaxHealth;
+                //if his health is less than x%+q+e then just botrkhim
+                if (target.Health < healthdmg + totaldmg) {
+                    botrk.Cast(target);
+                    DraWing.drawtext("botrkwho", 3, Drawing.Width * 0.45f, Drawing.Height * 0.80f, Color.PapayaWhip, "Using botrk on: " + target.ChampionName);
                 }
-                
             }
         }
 
@@ -434,14 +441,16 @@ namespace Kalimá {
             if (soulmate == null || Player.IsDead || !R.IsReady()) { return; }
             if (sender.IsMe && args.SData.Name == "KalistaExpungeWrapper") {
                 if (kalm.Item("autoresetAA", true).GetValue<Boolean>()) {
-                    Orbwalking.ResetAutoAttackTimer(); //dont reset because it does double E's and puts E on cooldown
+                    Utility.DelayAction.Add(250, Orbwalking.ResetAutoAttackTimer);
                 }
             }
             if (!kalm.Item("savesoulbound", true).GetValue<Boolean>()) { return; }
             //credits to hellsing modified to my liking...
-            if (sender is Obj_AI_Hero && sender.IsEnemy && args.Target.NetworkId == soulmate.NetworkId) {
+            if (sender is Obj_AI_Hero && sender.IsEnemy && args.Target != null && args.Target.NetworkId == soulmate.NetworkId) {
                 var enemy = (Obj_AI_Hero)sender; 
                 var slot = enemy.GetSpellSlot(args.SData.Name);
+                if (slot == SpellSlot.Unknown) { return; }
+                //ignite on soul
                 if (slot == enemy.GetSpellSlot("SummonerDot")) {
                     var dmgonsoul = (float)enemy.GetSummonerSpellDamage(soulmate, Damage.SummonerSpell.Ignite);
                     if (dmgonsoul > soulmate.Health && R.IsReady()) { R.Cast(); }
@@ -468,39 +477,42 @@ namespace Kalimá {
             if (Player.IsDead) { return; }
             var target = sender as Obj_AI_Hero;
             //moved debuff to onupdate....
-            if (target.CharData.BaseSkinName == Player.CharData.BaseSkinName) {}
         }
 
         static void debuff() {
             //credits to Mactivator for "useful" spell names instead of adding a bunch of crap or having to parse each one
             var debuff = false;
-            if (kalm.Item("debuff_blind", true).GetValue<Boolean>() && Player.HasBuffOfType(BuffType.Blind)) { debuff = true; }
-            if (kalm.Item("debuff_charm", true).GetValue<Boolean>() && Player.HasBuffOfType(BuffType.Charm)) { debuff = true; }
-            if (kalm.Item("debuff_fear", true).GetValue<Boolean>() && Player.HasBuffOfType(BuffType.Fear)) { debuff = true; }
-            if (kalm.Item("debuff_flee", true).GetValue<Boolean>() && Player.HasBuffOfType(BuffType.Flee)) { debuff = true; }
-            if (kalm.Item("debuff_snare", true).GetValue<Boolean>() && Player.HasBuffOfType(BuffType.Snare)) { debuff = true; }
-            if (kalm.Item("debuff_taunt", true).GetValue<Boolean>() && Player.HasBuffOfType(BuffType.Taunt)) { debuff = true; }
-            if (kalm.Item("debuff_suppression", true).GetValue<Boolean>() && Player.HasBuffOfType(BuffType.Suppression)) { debuff = true; }
-            if (kalm.Item("debuff_stun", true).GetValue<Boolean>() && Player.HasBuffOfType(BuffType.Stun)) { debuff = true; }
-            if (kalm.Item("debuff_polymorph", true).GetValue<Boolean>() && Player.HasBuffOfType(BuffType.Polymorph)) { debuff = true; }
-            if (kalm.Item("debuff_silence", true).GetValue<Boolean>() && Player.HasBuffOfType(BuffType.Silence)) { debuff = true; }
-            if (kalm.Item("debuff_dehancer", true).GetValue<Boolean>() && Player.HasBuffOfType(BuffType.CombatDehancer)) { debuff = true; }
-            if (kalm.Item("debuff_zedultexecute", true).GetValue<Boolean>() && Player.HasBuff("zedultexecute")) { debuff = true; }
-            if (kalm.Item("debuff_dispellExhaust", true).GetValue<Boolean>() && Player.HasBuff("summonerexhaust")) { debuff = true; }
+            var spell = "";
+            if (!(qss.IsReady() || mercurial.IsReady() || dervish.IsReady())) { return; }
+            if (kalm.Item("debuff_blind", true).GetValue<Boolean>() && Player.HasBuffOfType(BuffType.Blind)) { debuff = true;  spell = "Blind"; }
+            if (kalm.Item("debuff_rocketgrab2", true).GetValue<Boolean>() && Player.HasBuff("rocketgrab2")) { debuff = true; spell = "Blitz grab"; }
+            if (kalm.Item("debuff_charm", true).GetValue<Boolean>() && Player.HasBuffOfType(BuffType.Charm)) { debuff = true; spell = "Charm"; }
+            if (kalm.Item("debuff_fear", true).GetValue<Boolean>() && Player.HasBuffOfType(BuffType.Fear)) { debuff = true; spell = "Fear"; }
+            if (kalm.Item("debuff_flee", true).GetValue<Boolean>() && Player.HasBuffOfType(BuffType.Flee)) { debuff = true; spell = "Flee"; }
+            if (kalm.Item("debuff_snare", true).GetValue<Boolean>() && Player.HasBuffOfType(BuffType.Snare)) { debuff = true; spell = "Snare"; }
+            if (kalm.Item("debuff_taunt", true).GetValue<Boolean>() && Player.HasBuffOfType(BuffType.Taunt)) { debuff = true; spell = "Taunt"; }
+            if (kalm.Item("debuff_suppression", true).GetValue<Boolean>() && Player.HasBuffOfType(BuffType.Suppression)) { debuff = true; spell = "Suppression"; }
+            if (kalm.Item("debuff_stun", true).GetValue<Boolean>() && Player.HasBuffOfType(BuffType.Stun)) { debuff = true; spell = "Stun"; }
+            if (kalm.Item("debuff_polymorph", true).GetValue<Boolean>() && Player.HasBuffOfType(BuffType.Polymorph)) { debuff = true; spell = "Polymorph"; }
+            if (kalm.Item("debuff_silence", true).GetValue<Boolean>() && Player.HasBuffOfType(BuffType.Silence)) { debuff = true; spell = "Silence"; }
+            if (kalm.Item("debuff_dehancer", true).GetValue<Boolean>() && Player.HasBuffOfType(BuffType.CombatDehancer)) { debuff = true; spell = "CombatDehancer"; }
+            if (kalm.Item("debuff_zedultexecute", true).GetValue<Boolean>() && Player.HasBuff("zedultexecute")) { debuff = true; spell = "zedultexecute"; }
+            if (kalm.Item("debuff_dispellExhaust", true).GetValue<Boolean>() && Player.HasBuff("summonerexhaust")) { debuff = true; spell = "summonerexhaust"; }
 
             if (debuff) {
+                DraWing.drawtext("debuffing", 5, Drawing.Width * 0.45f, Drawing.Height * 0.90f, Color.Red, "Debuffing from: " + spell);
                 if (kalm.Item("debuffitemsactive", true).GetValue<Boolean>()) {
                     var s = false;
                     var i = "";
                     if (qss.IsReady()) {s = true; i = "qss";
-                        Items.UseItem(3141);
+                        qss.Cast();
                     } else if (mercurial.IsReady()) {s = true; i = "merc";
-                        Items.UseItem(3139);
+                        mercurial.Cast();
                     } else if (dervish.IsReady()) {s = true; i = "derv";
-                        Items.UseItem(3137);
+                        dervish.Cast();
                     }
                     if (s) {
-                        Notifications.AddNotification(new Notification("Debuffing with: " + i, 5000).SetTextColor(Color.FromArgb(255, 0, 0)));
+                        DraWing.drawtext("debuffing", 5, Drawing.Width * 0.45f, Drawing.Height * 0.90f, Color.Red, "Debuffing with item: " + i);
                     }
                 }
             }
@@ -810,13 +822,13 @@ namespace Kalimá {
                 _mysentinels.Add(new mysentinels("RobotBuddy", xxxXxxx.Position));
             }
             //add the camps where to send sentinels to...
-            _mysentinels.Add(new mysentinels("Blue Camp Blue Buff", (Vector3)SummonersRift.Jungle.Blue_BlueBuff));
-            _mysentinels.Add(new mysentinels("Blue Camp Red Buff", (Vector3)SummonersRift.Jungle.Blue_RedBuff));
-            _mysentinels.Add(new mysentinels("Red Camp Blue Buff", (Vector3)SummonersRift.Jungle.Red_BlueBuff));
-            _mysentinels.Add(new mysentinels("Red Camp Red Buff", (Vector3)SummonersRift.Jungle.Red_RedBuff));
+            _mysentinels.Add(new mysentinels("Blue_Camp_Blue_Buff", (Vector3)SummonersRift.Jungle.Blue_BlueBuff));
+            _mysentinels.Add(new mysentinels("Blue_Camp_Red_Buff", (Vector3)SummonersRift.Jungle.Blue_RedBuff));
+            _mysentinels.Add(new mysentinels("Red_Camp_Blue_Buff", (Vector3)SummonersRift.Jungle.Red_BlueBuff));
+            _mysentinels.Add(new mysentinels("Red_Camp_Red_Buff", (Vector3)SummonersRift.Jungle.Red_RedBuff));
             _mysentinels.Add(new mysentinels("Dragon", (Vector3)SummonersRift.River.Dragon));
             _mysentinels.Add(new mysentinels("Baron", (Vector3)SummonersRift.River.Baron));
-            _mysentinels.Add(new mysentinels("Mid Bot River", new Vector3(8370f, 6176f, -71.2406f)));
+            _mysentinels.Add(new mysentinels("Mid_Bot_River", new Vector3(8370f, 6176f, -71.2406f)));
             //add river mid bush here...
             //_mysentinels.Add(new mysentinels("RiverTop", (Vector3)SummonersRift.Bushes.);
         }
@@ -835,10 +847,12 @@ namespace Kalimá {
                     fillsentinels();
 
                     Random rnd = new Random();
-                    var sentineldestinations = _mysentinels.Where(s => !s.Name.Contains("RobotBuddy")).OrderBy(s => rnd.Next()).ToList();
+                    var sentineldestinations = _mysentinels.Where(s => !s.Name.Contains("RobotBuddy") && kalm.Item(s.Name, true).GetValue<Boolean>()).OrderBy(s => rnd.Next()).ToList();
+                    if (sentineldestinations == null) { return; }
                     foreach (var destinations in sentineldestinations) {
                         var distancefromme = Vector3.Distance(Player.Position, destinations.Position);
-                        if (sentinelcloserthan(destinations.Position, 1500) == 0 && distancefromme < W.Range) {
+                        if (sentinelcloserthan(destinations.Position, kalm.Item("autowsentinelclose", true).GetValue<Slider>().Value) == 0 && 
+                            distancefromme < W.Range && distancefromme > kalm.Item("autowspottooclosetome", true).GetValue<Slider>().Value) {
                             autoWtimers = Game.ClockTime;
                             W.Cast(destinations.Position);
                             Notifications.AddNotification(new Notification("sending bug to:" + destinations.Name, 5000).SetTextColor(Color.FromArgb(255, 0, 0)));
