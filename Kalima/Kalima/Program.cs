@@ -440,8 +440,8 @@ namespace Kalimá {
             //3 if's for no checks later...
             if (soulmate == null || Player.IsDead || !R.IsReady()) { return; }
             if (sender.IsMe && args.SData.Name == "KalistaExpungeWrapper") {
-                if (kalm.Item("autoresetAA", true).GetValue<Boolean>()) {
-                    Utility.DelayAction.Add(250, Orbwalking.ResetAutoAttackTimer);
+                if (kalm.Item("autoresetAA", true).GetValue<Boolean>() && (Game.ClockTime - ecastlastusedon) > 0.500) {
+                    Orbwalking.ResetAutoAttackTimer();
                 }
             }
             if (!kalm.Item("savesoulbound", true).GetValue<Boolean>()) { return; }
@@ -776,6 +776,7 @@ namespace Kalimá {
 
         //prevent double E's which put E on cooldown
         static float? ecasttimer;
+        static float? ecastlastusedon = Game.ClockTime;
         static void ECast() {
             if (ecasttimer != null) {
                 if ((Game.ClockTime - ecasttimer) > 0.500) {//wait 500ms before using E again
@@ -783,6 +784,7 @@ namespace Kalimá {
                 } else { return; }
             }
             ecasttimer = Game.ClockTime;
+            ecastlastusedon = Game.ClockTime;
             E.Cast();
         }
 
