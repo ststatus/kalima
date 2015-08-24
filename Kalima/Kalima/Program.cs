@@ -440,7 +440,7 @@ namespace Kalimá {
             //3 if's for no checks later...
             if (soulmate == null || Player.IsDead || !R.IsReady()) { return; }
             if (sender.IsMe && args.SData.Name == "KalistaExpungeWrapper") {
-                if (kalm.Item("autoresetAA", true).GetValue<Boolean>() && (Game.ClockTime - ecastlastusedon) > 0.500) {
+                if (kalm.Item("autoresetAA", true).GetValue<Boolean>() && (Game.ClockTime - ecastlastusedon) > 0.800) {
                     Orbwalking.ResetAutoAttackTimer();
                 }
             }
