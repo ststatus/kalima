@@ -24,7 +24,7 @@ namespace Kalimá {
 
         static Spell Q, W, E, R;
         static Obj_AI_Hero soulmate;//store the soulbound friend..
-        static float soulmateRange = 1250f;
+        static float soulmateRange = 1400f;
         static int MyLevel = 0;
         static Items.Item botrk = new Items.Item(3153, 550);
         static Items.Item mercurial = new Items.Item(3139,0f);//debuff
@@ -37,7 +37,7 @@ namespace Kalimá {
             Q.SetSkillshot(0.25f, 40f, 1700f, true, SkillshotType.SkillshotLine);
             W = new Spell(SpellSlot.W, 5200f);
             E = new Spell(SpellSlot.E, 1200f);
-            R = new Spell(SpellSlot.R, 1200f);
+            R = new Spell(SpellSlot.R, 1400f);
 
             menuload();
             Game.OnUpdate += Game_OnUpdate;
@@ -68,7 +68,7 @@ namespace Kalimá {
             Menu DrawM = kalimenu.AddSubMenu(new Menu("Drawing", "Drawing"));
 
             haraM.AddItem(new MenuItem("harassQ", "Use Q", true).SetValue(true));
-            haraM.AddItem(new MenuItem("harassQchance", "Q cast if Chance of hit is:", true).SetValue(new Slider(4, 1, 4)));
+            haraM.AddItem(new MenuItem("harassQchance", "Q cast if Chance of hit is:", true).SetValue(new Slider(3, 1, 4)));
             haraM.AddItem(new MenuItem("harassmanaminQ", "Q requires % mana", true).SetValue(new Slider(60, 0, 100)));
             haraM.AddItem(new MenuItem("harassuseE", "Use E", true).SetValue(true));
             haraM.AddItem(new MenuItem("harassEoutOfRange", "Use E when out of range", true).SetValue(true));
@@ -181,11 +181,14 @@ namespace Kalimá {
 
                 foreach (var enemy in HeroManager.Enemies.FindAll(x => x.IsEnemy)) {
                     targetselect.AddItem(new MenuItem("target" + enemy.ChampionName, enemy.ChampionName).SetValue(true));
-                    targetselect.AddItem(new MenuItem("maxhealth" + enemy.ChampionName, "Max Health to pull",true).SetValue(new Slider(70, 1, 100)));
+                    targetselect.AddItem(new MenuItem("maxhealth" + enemy.ChampionName, "Max Health to pull",true).SetValue(new Slider(100, 1, 100)));
                 }
-                balista.AddItem(new MenuItem("balistaminrange", "Min Range", true).SetValue(new Slider(450, 500, 1400)));
-                balista.AddItem(new MenuItem("balistamaxrange", "Max Range", true).SetValue(new Slider(1250, 500, 1250)));
-                balista.AddItem(new MenuItem("balistenemyamaxrange", "Enemy Max Range", true).SetValue(new Slider(2300, 500, 2400)));
+                if (blitzskarneringame.CharData.BaseSkinName == "Blitzcrank") {
+                    balista.AddItem(new MenuItem("balistaminrangefromsoul", "Min Range enemy from Soulmate", true).SetValue(new Slider(50, 10, 925)));
+                }
+                balista.AddItem(new MenuItem("balistaminrange", "Min Range me from Soulmate", true).SetValue(new Slider(450, 450, 1400)));
+                balista.AddItem(new MenuItem("balistamaxrange", "Max Range me from soulmate", true).SetValue(new Slider(1400, 500, 1400)));
+                balista.AddItem(new MenuItem("balistenemyamaxrange", "Enemy Max Range from me", true).SetValue(new Slider(2325, 500, 2325)));
                 balista.AddItem(new MenuItem("balistaActive", "Active", true).SetValue(true));
             }
 
@@ -475,7 +478,9 @@ namespace Kalimá {
 
         static void Event_OnBuffAdd(Obj_AI_Base sender, Obj_AI_BaseBuffAddEventArgs args) {
             if (Player.IsDead) { return; }
-            var target = sender as Obj_AI_Hero;
+            var soul = HeroManager.Allies.Find(a => !a.IsMe && a.Buffs.Any(b => b.Name.Contains("kalistacoopstrikeally")));
+            if (soul != null) {soulmate = soul;}
+            //var target = sender as Obj_AI_Hero;
             //moved debuff to onupdate....
         }
 
@@ -496,7 +501,7 @@ namespace Kalimá {
             if (kalm.Item("debuff_polymorph", true).GetValue<Boolean>() && Player.HasBuffOfType(BuffType.Polymorph)) { debuff = true; spell = "Polymorph"; }
             if (kalm.Item("debuff_silence", true).GetValue<Boolean>() && Player.HasBuffOfType(BuffType.Silence)) { debuff = true; spell = "Silence"; }
             if (kalm.Item("debuff_dehancer", true).GetValue<Boolean>() && Player.HasBuffOfType(BuffType.CombatDehancer)) { debuff = true; spell = "CombatDehancer"; }
-            if (kalm.Item("debuff_zedultexecute", true).GetValue<Boolean>() && Player.HasBuff("zedultexecute")) { debuff = true; spell = "zedultexecute"; }
+            if (kalm.Item("debuff_zedultexecute", true).GetValue<Boolean>() && Player.HasBuff("zedulttargetmark")) { debuff = true; spell = "zedulttargetmark"; }
             if (kalm.Item("debuff_dispellExhaust", true).GetValue<Boolean>() && Player.HasBuff("summonerexhaust")) { debuff = true; spell = "summonerexhaust"; }
 
             if (debuff) {
@@ -529,8 +534,8 @@ namespace Kalimá {
                     if (MyLevel == 3) { Player.Spellbook.LevelUpSpell(SpellSlot.Q); }
                     Player.Spellbook.LevelUpSpell(SpellSlot.R);
                     Player.Spellbook.LevelUpSpell(SpellSlot.E);
-                    Player.Spellbook.LevelUpSpell(SpellSlot.Q);
                     Player.Spellbook.LevelUpSpell(SpellSlot.W);
+                    Player.Spellbook.LevelUpSpell(SpellSlot.Q);
                     MyLevel++;
                 }
             }
@@ -681,12 +686,21 @@ namespace Kalimá {
                 var enemymaxrange = kalm.Item("balistenemyamaxrange", true).GetValue<Slider>().Value;
                 var balistaminrange = kalm.Item("balistaminrange", true).GetValue<Slider>().Value;
                 var balistamaxrange = kalm.Item("balistamaxrange", true).GetValue<Slider>().Value;
+                var balistaminrangefromsoul = kalm.Item("balistaminrangefromsoul", true).GetValue<Slider>().Value;
 
                 var closestenemiestome = HeroManager.Enemies.FindAll(x =>
                     x.Distance(Player.ServerPosition) < enemymaxrange && !x.IsDead &&
                     x.Distance(Player.ServerPosition) > balistaminrange &&
-                    x.Distance(soulmate.ServerPosition) < balistamaxrange
-                    );
+                    x.Distance(soulmate.ServerPosition) < balistamaxrange);
+
+                if (soulmate.CharData.BaseSkinName == "Blitzcrank") {
+                    closestenemiestome = HeroManager.Enemies.FindAll(x =>
+                        x.Distance(Player.ServerPosition) < enemymaxrange && !x.IsDead &&
+                        x.Distance(Player.ServerPosition) > balistaminrange &&
+                        x.Distance(soulmate.ServerPosition) > balistaminrangefromsoul &&
+                        x.Distance(soulmate.ServerPosition) < balistamaxrange);
+                }
+
                 if (closestenemiestome == null) { return false; }
 
                 var mysoul = HeroManager.Allies.Find(x =>
@@ -712,7 +726,7 @@ namespace Kalimá {
                 if (soulmate == null) { return; }
             } else if (Game.ClockTime < (60*5)) {//check for changes until 5 minutes in game which then kali isnt allowed to change coop
                 soulmate = HeroManager.Allies.Find(a => !a.IsMe && a.Buffs.Any(b => b.Name.Contains("kalistacoopstrikeally")));
-                if (soulmate == null) { return; }            
+                if (soulmate == null) { return; }
             }
 
             if (soulmate.IsDead) {
