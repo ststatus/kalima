@@ -188,7 +188,7 @@ namespace Kalimá {
                 }
                 balista.AddItem(new MenuItem("balistaminrange", "Min Range me from Soulmate", true).SetValue(new Slider(450, 450, 1400)));
                 balista.AddItem(new MenuItem("balistamaxrange", "Max Range me from soulmate", true).SetValue(new Slider(1400, 500, 1400)));
-                balista.AddItem(new MenuItem("balistenemyamaxrange", "Enemy Max Range from me", true).SetValue(new Slider(2325, 500, 2325)));
+                balista.AddItem(new MenuItem("balistenemyamaxrange", "Enemy Max Range from me", true).SetValue(new Slider(2300, 500, 2300)));
                 balista.AddItem(new MenuItem("balistaActive", "Active", true).SetValue(true));
             }
 
