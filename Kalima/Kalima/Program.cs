@@ -184,7 +184,7 @@ namespace Kalimá {
                     targetselect.AddItem(new MenuItem("maxhealth" + enemy.ChampionName, "Max Health to pull",true).SetValue(new Slider(100, 1, 100)));
                 }
                 if (blitzskarneringame.CharData.BaseSkinName == "Blitzcrank") {
-                    balista.AddItem(new MenuItem("balistaminrangefromsoul", "Min Range enemy from Soulmate", true).SetValue(new Slider(50, 10, 925)));
+                    balista.AddItem(new MenuItem("balistaminrangefromsoul", "Min Range enemy from Soulmate", true).SetValue(new Slider(50, 0, 925)));
                 }
                 balista.AddItem(new MenuItem("balistaminrange", "Min Range me from Soulmate", true).SetValue(new Slider(450, 450, 1400)));
                 balista.AddItem(new MenuItem("balistamaxrange", "Max Range me from soulmate", true).SetValue(new Slider(1400, 500, 1400)));
