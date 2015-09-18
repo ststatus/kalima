@@ -16,7 +16,7 @@ namespace Kalimá {
 
         #region GAME LOAD
         static Dictionary<Vector3, Vector3> jumpPos;
-        static readonly Obj_AI_Hero Player = ObjectManager.Player;
+        static readonly Obj_AI_Hero Player = ObjectManager.Player; 
         static Orbwalking.Orbwalker Orbwalker;
         static Menu kalimenu;
         static Menu kalm { get { return Kalista.kalimenu; } }
