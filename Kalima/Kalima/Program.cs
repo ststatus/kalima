@@ -756,19 +756,9 @@ namespace Kalimá {
             if (spears > 0) { stacks = spears; }
             if (stacks == 0) { return 1; }
 
-            var baseDamage = new[] { 20, 30, 40, 50, 60 };
-            var bd = baseDamage[E.Level - 1];
-            var additionalBaseDamage = new[] { 0.6f, 0.6f, 0.6f, 0.6f, 0.6f };
-            var abd = additionalBaseDamage[E.Level - 1];
-
-            var spearDamage = new[] { 10, 14, 19, 25, 32 };
-            var sd = spearDamage[E.Level - 1];
-            var additionalSpearDamage = new[] { 0.20f, 0.225f, 0.25f, 0.275f, 0.30f };
-            var asd = additionalSpearDamage[E.Level - 1];
-            double realtotalad = Player.TotalAttackDamage;
-            double playertotalad = realtotalad;
-
-            double totalDamage = bd + abd * realtotalad + (stacks - 1) * (sd + asd * playertotalad);
+            double totalDamage = (new double[] { 20, 30, 40, 50, 60 }[E.Level -1] + 0.6 * Player.TotalAttackDamage) + ((stacks - 1) *
+                   (new double[] { 10, 14, 19, 25, 32 }[E.Level -1] +
+                    new double[] { 0.2, 0.225, 0.25, 0.275, 0.3 }[E.Level -1] * Player.TotalAttackDamage));
 
             totalDamage = 100 / (100 + (target.Armor * Player.PercentArmorPenetrationMod) - Player.FlatArmorPenetrationMod) * totalDamage;
 
@@ -793,7 +783,7 @@ namespace Kalimá {
         static float? ecastlastusedon = Game.ClockTime;
         static void ECast() {
             if (ecasttimer != null) {
-                if ((Game.ClockTime - ecasttimer) > 0.500) {//wait 500ms before using E again
+                if ((Game.ClockTime - ecasttimer) > 0.700) {//wait 500ms before using E again
                     ecasttimer = null;
                 } else { return; }
             }
@@ -806,7 +796,7 @@ namespace Kalimá {
             if (!E.IsReady() || !E.CanCast(target)) { return false; }
             var cancast = false;
             if (ecasttimer != null) {
-                if ((Game.ClockTime - ecasttimer) > 0.300) {//check with e's timer
+                if ((Game.ClockTime - ecasttimer) > 0.700) {//check with e's timer
                     ecasttimer = null;
                     cancast = true;
                 } else { return false; }
