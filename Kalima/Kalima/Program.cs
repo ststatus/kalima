@@ -766,7 +766,7 @@ namespace Kalimá {
         }
 
         //idea from hellsing
-        static bool hasundyingbuff(Obj_AI_Hero target) {
+        static bool hasundyingbuff(Obj_AI_Hero target) { 
             //checks for undying buffs and shields
             var hasbufforshield = TargetSelector.IsInvulnerable(target,TargetSelector.DamageType.Magical,false);
             if (hasbufforshield) { return true; }
