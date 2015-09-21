@@ -765,7 +765,7 @@ namespace Kalimá {
             totalDamage = 100 / (100 + (target.Armor * Player.PercentArmorPenetrationMod) - Player.FlatArmorPenetrationMod) * totalDamage;
 
             if (target is Obj_AI_Hero) {
-                if (Player.Masteries.Any()) {
+                if (Player.Masteries.Any()) { 
                     //double edged sword
                     if (Player.Masteries.Any(m => m.Page == MasteryPage.Offense && m.Id == 65 && m.Points == 1)) {
                         totalDamage = totalDamage * 1.015;
