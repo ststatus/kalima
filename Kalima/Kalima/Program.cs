@@ -756,11 +756,38 @@ namespace Kalimá {
             if (spears > 0) { stacks = spears; }
             if (stacks == 0) { return 1; }
 
-            double totalDamage = (new double[] { 20, 30, 40, 50, 60 }[E.Level -1] + 0.6 * Player.TotalAttackDamage) + ((stacks - 1) *
+            double PTotalDamage = Player.TotalAttackDamage;
+
+            double totalDamage = (new double[] { 20, 30, 40, 50, 60 }[E.Level -1] + 0.6 * PTotalDamage) + ((stacks - 1) *
                    (new double[] { 10, 14, 19, 25, 32 }[E.Level -1] +
-                    new double[] { 0.2, 0.225, 0.25, 0.275, 0.3 }[E.Level -1] * Player.TotalAttackDamage));
+                    new double[] { 0.2, 0.225, 0.25, 0.275, 0.3 }[E.Level -1] * PTotalDamage));
 
             totalDamage = 100 / (100 + (target.Armor * Player.PercentArmorPenetrationMod) - Player.FlatArmorPenetrationMod) * totalDamage;
+
+            if (target is Obj_AI_Hero) {
+                if (Player.Masteries.Any()) {
+                    //double edged sword
+                    if (Player.Masteries.Any(m => m.Page == MasteryPage.Offense && m.Id == 65 && m.Points == 1)) {
+                        totalDamage = totalDamage * 1.015;
+                    }
+                    //havoc
+                    if (Player.Masteries.Any(m => m.Page == MasteryPage.Offense && m.Id == 146 && m.Points == 1)) {
+                        totalDamage = totalDamage * 1.03;
+                    }
+                    //spell weaving
+                    if (Player.Masteries.Any(m => m.Page == MasteryPage.Offense && m.Id == 97 && m.Points == 1)) {
+                        if (stacks < 3) {
+                            totalDamage = totalDamage * (stacks * 1.01);
+                        } else { totalDamage = totalDamage * 1.03; }
+                    }
+                    //executioner
+                    var mastery = Player.Masteries.Find(m => m.Page == MasteryPage.Offense && m.Id == 100);
+                    if (mastery != null && mastery.Points >= 1 &&
+                        target.Health / target.MaxHealth <= 0.05d + 0.15d * mastery.Points) {
+                        totalDamage = totalDamage * 1.05;
+                    }
+                }
+            }
 
             return (float)totalDamage;
         }
