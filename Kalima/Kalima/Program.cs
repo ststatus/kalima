@@ -10,8 +10,10 @@ using System.Text;
 using System.Threading.Tasks;
 using Color = System.Drawing.Color;
 using Collision = LeagueSharp.Common.Collision;
+using Orbwalking = Kalima.refs.Orbwalking;
 #endregion
-namespace Kalimá {
+
+namespace Kalima {
     internal class Kalista {
 
         #region GAME LOAD
