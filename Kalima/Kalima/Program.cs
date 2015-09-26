@@ -71,12 +71,12 @@ namespace Kalima {
 
             haraM.AddItem(new MenuItem("harassQ", "Use Q", true).SetValue(true));
             haraM.AddItem(new MenuItem("harassQchance", "Q cast if Chance of hit is:", true).SetValue(new Slider(3, 1, 4)));
-            haraM.AddItem(new MenuItem("harassmanaminQ", "Q requires % mana", true).SetValue(new Slider(60, 0, 100)));
+            haraM.AddItem(new MenuItem("harassmanaminQ", "Q requires % mana", true).SetValue(new Slider(70, 0, 100)));
             haraM.AddItem(new MenuItem("harassuseE", "Use E", true).SetValue(true));
             haraM.AddItem(new MenuItem("harassEoutOfRange", "Use E when out of range", true).SetValue(true));
             haraM.AddItem(new MenuItem("harassE", "when being able to kill X minions and E champion", true).SetValue(new Slider(1, 1, 10)));
             haraM.AddItem(new MenuItem("harassEminhealth", "E req minion % health to prevent E cooldown", true).SetValue(new Slider(7, 1, 50)));
-            haraM.AddItem(new MenuItem("harassmanaminE", "E requires % mana", true).SetValue(new Slider(30, 0, 100)));
+            haraM.AddItem(new MenuItem("harassmanaminE", "E requires % mana", true).SetValue(new Slider(40, 0, 100)));
             haraM.AddItem(new MenuItem("harassActive", "Active", true).SetValue(true));
 
             JungM.AddItem(new MenuItem("jungleclearQ", "Use Q", true).SetValue(false));
@@ -93,7 +93,7 @@ namespace Kalima {
             LaneM.AddItem(new MenuItem("laneclearEcast", "E cast if minions >= X (min value)", true).SetValue(new Slider(2, 0, 10)));
             LaneM.AddItem(new MenuItem("laneclearEcastincr", "Increase number by Level (decimal):", true).SetValue(new Slider(1, 0, 4)));
             LaneM.AddItem(new MenuItem("laneclearEminhealth", "E req minion % health to prevent E cooldown", true).SetValue(new Slider(7, 1, 50)));
-            LaneM.AddItem(new MenuItem("laneclearmanaminE", "E requires % mana", true).SetValue(new Slider(30, 0, 100)));
+            LaneM.AddItem(new MenuItem("laneclearmanaminE", "E requires % mana", true).SetValue(new Slider(45, 0, 100)));
             LaneM.AddItem(new MenuItem("laneclearbigminionsE", "E when it can kill siege/super minions", true).SetValue(true));
             LaneM.AddItem(new MenuItem("laneclearlasthit", "E when non-killable by AA", true).SetValue(true));
 
@@ -257,7 +257,7 @@ namespace Kalima {
             if (lemana < minmana) { minmana = lemana; }
             if (mymana < minmana) { return; }//quick check to return if less than minmana...
 
-            if (kalm.Item("harassQ", true).GetValue<Boolean>() && mymana > lqmana && Q.IsReady(1) && !Player.IsDashing()) {
+            if (kalm.Item("harassQ", true).GetValue<Boolean>() && mymana > lqmana && Q.IsReady(1)) {
                 var enemies = HeroManager.Enemies.FindAll(h =>
                     h.IsValidTarget(Q.Range) && Q.CanCast(h) &&
                     ((Q.GetPrediction(h).Hitchance >= gethitchanceQ) ||
@@ -269,7 +269,7 @@ namespace Kalima {
                                 var collide = Q.GetPrediction(enemy).CollisionObjects;
                                 var dontbother = 0;
                                 foreach (var thing in collide) {
-                                    if (thing.Health > Q.GetDamage(thing)) { dontbother = 1; }
+                                    if ((thing.Health > Q.GetDamage(thing)) || thing.CharData.BaseSkinName == "gangplankbarrel") { dontbother = 1; }
                                 }
                                 if (dontbother == 0) {
                                     Q.Cast(enemy);
@@ -443,13 +443,13 @@ namespace Kalima {
 
         static void Event_OnProcessSpellCast(Obj_AI_Base sender, GameObjectProcessSpellCastEventArgs args) {
             //3 if's for no checks later...
-            if (soulmate == null || Player.IsDead || !R.IsReady()) { return; }
+            if (Player.IsDead) { return; }
             if (sender.IsMe && args.SData.Name == "KalistaExpungeWrapper") {
                 if (kalm.Item("autoresetAA", true).GetValue<Boolean>() && (Game.ClockTime - ecastlastusedon) > 0.800) {
                     Orbwalking.ResetAutoAttackTimer();
                 }
             }
-            if (!kalm.Item("savesoulbound", true).GetValue<Boolean>()) { return; }
+            if (soulmate == null || !R.IsReady() || !kalm.Item("savesoulbound", true).GetValue<Boolean>()) { return; }
             //credits to hellsing modified to my liking...
             if (sender is Obj_AI_Hero && sender.IsEnemy && args.Target != null && args.Target.NetworkId == soulmate.NetworkId) {
                 var enemy = (Obj_AI_Hero)sender; 
