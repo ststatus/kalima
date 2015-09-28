@@ -79,7 +79,8 @@ namespace Kalima {
             haraM.AddItem(new MenuItem("harassmanaminE", "E requires % mana", true).SetValue(new Slider(40, 0, 100)));
             haraM.AddItem(new MenuItem("harassActive", "Active", true).SetValue(true));
 
-            JungM.AddItem(new MenuItem("jungleclearQ", "Use Q", true).SetValue(false));
+            JungM.AddItem(new MenuItem("jungleclearQ", "Use Q", true).SetValue(true));
+            JungM.AddItem(new MenuItem("jungleclearQdistance", "Q Max distance from jungle minion", true).SetValue(new Slider(200, 0, 1150)));
             JungM.AddItem(new MenuItem("jungleclearE", "Use E", true).SetValue(true));
             JungM.AddItem(new MenuItem("jungleclearmana", "E requires % mana", true).SetValue(new Slider(20, 0, 100)));
             JungM.AddItem(new MenuItem("bardragsteal", "Steal dragon/baron", true).SetValue(true));
@@ -90,15 +91,15 @@ namespace Kalima {
             LaneM.AddItem(new MenuItem("laneclearQcast", "Q cast if minions >= X", true).SetValue(new Slider(2, 1, 10)));
             LaneM.AddItem(new MenuItem("laneclearmanaminQ", "Q requires % mana", true).SetValue(new Slider(65, 0, 100)));
             LaneM.AddItem(new MenuItem("laneclearE", "Use E", true).SetValue(true));
-            LaneM.AddItem(new MenuItem("laneclearEcast", "E cast if minions >= X (min value)", true).SetValue(new Slider(2, 0, 10)));
-            LaneM.AddItem(new MenuItem("laneclearEcastincr", "Increase number by Level (decimal):", true).SetValue(new Slider(1, 0, 4)));
+            LaneM.AddItem(new MenuItem("laneclearEcast", "E cast if minions >= X (min value)", true).SetValue(new Slider(1, 0, 10)));
+            LaneM.AddItem(new MenuItem("laneclearEcastincr", "Increase number by Level (decimal):", true).SetValue(new Slider(2, 0, 4)));
             LaneM.AddItem(new MenuItem("laneclearEminhealth", "E req minion % health to prevent E cooldown", true).SetValue(new Slider(7, 1, 50)));
             LaneM.AddItem(new MenuItem("laneclearmanaminE", "E requires % mana", true).SetValue(new Slider(45, 0, 100)));
             LaneM.AddItem(new MenuItem("laneclearbigminionsE", "E when it can kill siege/super minions", true).SetValue(true));
             LaneM.AddItem(new MenuItem("laneclearlasthit", "E when non-killable by AA", true).SetValue(true));
 
             Menu BotrkM = ItemM.AddSubMenu(new Menu("Botrk", "Botrk"));
-            BotrkM.AddItem(new MenuItem("botrkKS", "Use when target has < x% health + Q+E(dmg)", true).SetValue(new Slider(40, 10, 100)));
+            BotrkM.AddItem(new MenuItem("botrkKS", "Use when target has < x% health + Q+E(dmg)", true).SetValue(new Slider(70, 10, 100)));
             BotrkM.AddItem(new MenuItem("botrkmyheal", "Use when my health is at: < x%", true).SetValue(new Slider(40, 0, 100)));
             BotrkM.AddItem(new MenuItem("botrkactive", "Active", true).SetValue(true));
 
@@ -370,7 +371,7 @@ namespace Kalima {
             //other minions in jungle...
             var jungleinside = MINIONS.Find(X => X.Team == GameObjectTeam.Neutral && !X.CharData.BaseSkinName.ToLower().Contains("dragon") && !X.CharData.BaseSkinName.ToLower().Contains("baron"));
             if (jungleinside != null) {
-                if (kalm.Item("jungleclearQ", true).GetValue<Boolean>()) {
+                if (kalm.Item("jungleclearQ", true).GetValue<Boolean>() && Player.ServerPosition.Distance(jungleinside.ServerPosition) < kalm.Item("jungleclearQdistance", true).GetValue<Slider>().Value) {
                     if (Q.CanCast(jungleinside)) { Q.Cast(jungleinside); }
                 }
                 if (kalm.Item("jungleclearE", true).GetValue<Boolean>()) {

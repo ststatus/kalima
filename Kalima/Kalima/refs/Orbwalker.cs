@@ -693,8 +693,8 @@ namespace Kalima.refs
                                 minion =>
                                     minion.IsValidTarget() && InAutoAttackRange(minion))
                                     .OrderByDescending(minion => minion.CharData.BaseSkinName.Contains("Siege"))
-                                    .ThenBy(minion => minion.CharData.BaseSkinName.Contains("Super"))
                                     .ThenBy(minion => minion.Health)
+                                    .ThenBy(minion => minion.CharData.BaseSkinName.Contains("Super"))
                                     .ThenByDescending(minion => minion.MaxHealth);
 
                     foreach (var minion in MinionList)
