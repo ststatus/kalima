@@ -10,7 +10,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Color = System.Drawing.Color;
 using Collision = LeagueSharp.Common.Collision;
-using Orbwalking = Kalima.refs.Orbwalking;
+//using Orbwalking = Kalima.refs.Orbwalking;
 #endregion
 
 namespace Kalima {
@@ -60,7 +60,6 @@ namespace Kalima {
             kalimenu = new Menu("Kalimá", Player.ChampionName, true);
             Menu OrbwalkerMenu = kalimenu.AddSubMenu(new Menu("Orbwalker", "Orbwalker"));
             Orbwalker = new Orbwalking.Orbwalker(OrbwalkerMenu);
-            TargetSelector.AddToMenu(kalimenu.AddSubMenu(new Menu(Player.ChampionName + ": Target Selector", "Target Selector")));
             //            Menu combM = kalimenu.AddSubMenu(new Menu("Combo", "Combo"));
             Menu haraM = kalimenu.AddSubMenu(new Menu("Harass", "Harass"));
             Menu LaneM = kalimenu.AddSubMenu(new Menu("Lane Clear", "LaneClear"));
@@ -80,7 +79,7 @@ namespace Kalima {
             haraM.AddItem(new MenuItem("harassActive", "Active", true).SetValue(true));
 
             JungM.AddItem(new MenuItem("jungleclearQ", "Use Q", true).SetValue(true));
-            JungM.AddItem(new MenuItem("jungleclearQdistance", "Q Max distance from jungle minion", true).SetValue(new Slider(200, 0, 1150)));
+            JungM.AddItem(new MenuItem("jungleclearQdistance", "Q Max distance from jungle minion", true).SetValue(new Slider(250, 0, 1150)));
             JungM.AddItem(new MenuItem("jungleclearE", "Use E", true).SetValue(true));
             JungM.AddItem(new MenuItem("jungleclearmana", "E requires % mana", true).SetValue(new Slider(20, 0, 100)));
             JungM.AddItem(new MenuItem("bardragsteal", "Steal dragon/baron", true).SetValue(true));
@@ -337,7 +336,7 @@ namespace Kalima {
                 var enemyregen = enemy.HPRegenRate / 2;
                 if (((enemyhealth + enemyregen) <= edmg) && ECanCast(enemy) && !hasundyingbuff(enemy)) { ECast(); return; }
                 if (Q.GetPrediction(enemy).Hitchance >= HitChance.High && Q.CanCast(enemy)) {
-                    var qdamage = Player.GetSpellDamage(enemy, SpellSlot.Q);
+                    var qdamage = Q.GetDamage(enemy);
                     if ((qdamage + edmg) >= (enemyhealth + enemyregen)) {
                         Q.Cast(enemy);
                         return;
@@ -758,41 +757,7 @@ namespace Kalima {
             var stacks = target.GetBuffCount("kalistaexpungemarker");
             if (spears > 0) { stacks = spears; }
             if (stacks == 0) { return 1; }
-
-            double PTotalDamage = Player.TotalAttackDamage;
-
-            double totalDamage = (new double[] { 20, 30, 40, 50, 60 }[E.Level -1] + 0.6 * PTotalDamage) + ((stacks - 1) *
-                   (new double[] { 10, 14, 19, 25, 32 }[E.Level -1] +
-                    new double[] { 0.2, 0.225, 0.25, 0.275, 0.3 }[E.Level -1] * PTotalDamage));
-
-            totalDamage = 100 / (100 + (target.Armor * Player.PercentArmorPenetrationMod) - Player.FlatArmorPenetrationMod) * totalDamage;
-
-            if (target is Obj_AI_Hero) {
-                if (Player.Masteries.Any()) { 
-                    //double edged sword
-                    if (Player.Masteries.Any(m => m.Page == MasteryPage.Offense && m.Id == 65 && m.Points == 1)) {
-                        totalDamage = totalDamage * 1.015;
-                    }
-                    //havoc
-                    if (Player.Masteries.Any(m => m.Page == MasteryPage.Offense && m.Id == 146 && m.Points == 1)) {
-                        totalDamage = totalDamage * 1.03;
-                    }
-                    //spell weaving
-                    if (Player.Masteries.Any(m => m.Page == MasteryPage.Offense && m.Id == 97 && m.Points == 1)) {
-                        if (stacks < 3) {
-                            totalDamage = totalDamage * (stacks * 1.01);
-                        } else { totalDamage = totalDamage * 1.03; }
-                    }
-                    //executioner
-                    var mastery = Player.Masteries.Find(m => m.Page == MasteryPage.Offense && m.Id == 100);
-                    if (mastery != null && mastery.Points >= 1 &&
-                        target.Health / target.MaxHealth <= 0.05d + 0.15d * mastery.Points) {
-                        totalDamage = totalDamage * 1.05;
-                    }
-                }
-            }
-
-            return (float)totalDamage;
+            return E.GetDamage(target);
         }
 
         //idea from hellsing
