@@ -442,26 +442,66 @@ namespace Kalima {
         }
 
         static void Event_OnProcessSpellCast(Obj_AI_Base sender, GameObjectProcessSpellCastEventArgs args) {
-            //3 if's for no checks later...
+            //credits to hellsing on the whole R save idea
             if (Player.IsDead) { return; }
             if (sender.IsMe && args.SData.Name == "KalistaExpungeWrapper") {
                 if (kalm.Item("autoresetAA", true).GetValue<Boolean>() && (Game.ClockTime - ecastlastusedon) > 0.800) {
                     Orbwalking.ResetAutoAttackTimer();
                 }
             }
-            if (soulmate == null || !R.IsReady() || !kalm.Item("savesoulbound", true).GetValue<Boolean>()) { return; }
-            //credits to hellsing modified to my liking...
-            if (sender is Obj_AI_Hero && sender.IsEnemy && args.Target != null && args.Target.NetworkId == soulmate.NetworkId) {
-                var enemy = (Obj_AI_Hero)sender; 
-                var slot = enemy.GetSpellSlot(args.SData.Name);
-                if (slot == SpellSlot.Unknown) { return; }
-                //ignite on soul
-                if (slot == enemy.GetSpellSlot("SummonerDot")) {
-                    var dmgonsoul = (float)enemy.GetSummonerSpellDamage(soulmate, Damage.SummonerSpell.Ignite);
-                    if (dmgonsoul > soulmate.Health && R.IsReady()) { R.Cast(); }
+            if (!sender.IsEnemy || !sender.IsValidTarget() || !sender.IsVisible || args.Target == null ||
+                soulmate == null || args.Target.NetworkId != soulmate.NetworkId || args.Target.Position.Distance(Player.Position) > R.Range ||
+                    !R.IsReady() || !kalm.Item("savesoulbound", true).GetValue<Boolean>()) { return; }
+
+            var target = args.Target as Obj_AI_Hero;
+
+            if (args.SData.IsAutoAttack()) {
+                if (target == null) { return; }
+
+                //credits to XcxooxL for his crits idea...
+                double damage = 0;
+                if (args.SData.Name.ToLower().Contains("crit")) {
+                    damage += sender.GetAutoAttackDamage(target) * 2;
+                    //Console.WriteLine("Critical " + damage);
+                    if (sender.InventoryItems.Any(item => item.Id.Equals(3031))) {
+                        damage += damage * 1.25;
+                    }
+                    //Infinity edge
+                } else {
+                    damage += sender.GetAutoAttackDamage(target, true);
                 }
-                if (soulmate.HealthPercent <= kalm.Item("savesoulboundat", true).GetValue<Slider>().Value) {
+                //save after the AA since the ult wont stop this AA but soulmate will be saved before the next one...
+                if (damage * 2 > soulmate.Health) {
                     R.Cast();
+                } else {
+                    //save if going under % health (set in the menu after the AA)
+                    var soulhealthafter = soulmate.Health - damage;
+                    if (soulhealthafter < (soulmate.MaxHealth / 100 * kalm.Item("savesoulboundat", true).GetValue<Slider>().Value)) {
+                        R.Cast();
+                    }
+                }
+            } else {
+                //its spells if not AA...
+                var enemy = (Obj_AI_Hero)sender;
+                var slot = enemy.GetSpellSlot(args.SData.Name);
+                //check for ignite
+                if (slot != SpellSlot.Unknown && slot == enemy.GetSpellSlot("SummonerDot")) {
+                    var dmgonsoul = (float)enemy.GetSummonerSpellDamage(soulmate, Damage.SummonerSpell.Ignite);
+                    if (dmgonsoul > soulmate.Health) { R.Cast(); }
+                } else {
+                    //check against directed spells first which cant be dodged...
+                    if (args.SData.TargettingType == SpellDataTargetType.Unit) {
+                        var dmgonsoul = enemy.GetSpellDamage(soulmate, args.SData.Name);
+                        var soulhealthafter = soulmate.Health - dmgonsoul;
+                        if (dmgonsoul < soulmate.Health && soulhealthafter < (soulmate.MaxHealth / 100 * kalm.Item("savesoulboundat", true).GetValue<Slider>().Value)) {
+                            R.Cast();
+                        }
+                    } else {
+                        //check against non directed spells which can be saved from...
+                        var dmgonsoul = enemy.GetSpellDamage(soulmate, args.SData.Name);
+                        var soulhealthafter = soulmate.Health - dmgonsoul;
+                        if (dmgonsoul > soulmate.Health) { R.Cast(); }
+                    }
                 }
             }
         }
