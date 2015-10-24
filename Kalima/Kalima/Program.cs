@@ -144,6 +144,8 @@ namespace Kalima {
             MiscM.AddItem(new MenuItem("killsteal", "Kill Steal", true).SetValue(true));
             MiscM.AddItem(new MenuItem("savesoulbound", "Save Soulbound (With R)", true).SetValue(true));
             MiscM.AddItem(new MenuItem("savesoulboundat", "Save when health < %", true).SetValue(new Slider(25, 0, 100)));
+            MiscM.AddItem(new MenuItem("preventdouble", "Prevent double E with timer", true).SetValue(true));
+            MiscM.AddItem(new MenuItem("popEbeforedying", "Pop E before dying", true).SetValue(true));
             MiscM.AddItem(new MenuItem("fleeKey", "Flee Toggle").SetValue(new KeyBind("T".ToCharArray()[0], KeyBindType.Press)));
             Menu TimersM = MiscM.AddSubMenu(new Menu("Timer Limits", "Timer Limits"));
             TimersM.AddItem(new MenuItem("onupdateT", "OnUpdate Timer (max times per second)", true).SetValue(new Slider(30, 1, 100)));
@@ -446,63 +448,80 @@ namespace Kalima {
             if (Player.IsDead) { return; }
             if (sender.IsMe && args.SData.Name == "KalistaExpungeWrapper") {
                 if (kalm.Item("autoresetAA", true).GetValue<Boolean>() && (Game.ClockTime - ecastlastusedon) > 0.800) {
-                    Orbwalking.ResetAutoAttackTimer();
+                    //Orbwalking.ResetAutoAttackTimer();
                 }
             }
-            if (!sender.IsEnemy || !sender.IsValidTarget() || !sender.IsVisible || args.Target == null ||
-                soulmate == null || args.Target.NetworkId != soulmate.NetworkId || args.Target.Position.Distance(Player.Position) > R.Range ||
-                    !R.IsReady() || !kalm.Item("savesoulbound", true).GetValue<Boolean>()) { return; }
 
-            var target = args.Target as Obj_AI_Hero;
+            if (sender.IsEnemy && sender.IsValidTarget() && sender.IsVisible && args.Target != null &&
+                (args.Target.NetworkId == Player.NetworkId || (soulmate != null && args.Target.NetworkId == soulmate.NetworkId))) {
 
-            if (args.SData.IsAutoAttack()) {
-                if (target == null) { return; }
+                var target = args.Target as Obj_AI_Hero;
 
-                //credits to XcxooxL for his crits idea...
-                double damage = 0;
-                if (args.SData.Name.ToLower().Contains("crit")) {
-                    damage += sender.GetAutoAttackDamage(target) * 2;
-                    //Console.WriteLine("Critical " + damage);
-                    if (sender.InventoryItems.Any(item => item.Id.Equals(3031))) {
-                        damage += damage * 1.25;
+                if (args.SData.IsAutoAttack()) {
+                    //credits to XcxooxL for his crits idea...
+                    double damage = 0;
+                    if (args.SData.Name.ToLower().Contains("crit")) {
+                        damage += sender.GetAutoAttackDamage(target) * 2;
+                        //Console.WriteLine("Critical " + damage);
+                        if (sender.InventoryItems.Any(item => item.Id.Equals(3031))) {
+                            damage += damage * 1.25;
+                        }
+                        //Infinity edge
+                    } else {
+                        damage += sender.GetAutoAttackDamage(target, true);
                     }
-                    //Infinity edge
-                } else {
-                    damage += sender.GetAutoAttackDamage(target, true);
-                }
-                //save after the AA since the ult wont stop this AA but soulmate will be saved before the next one...
-                if (damage * 2 > soulmate.Health) {
-                    R.Cast();
-                } else {
-                    //save if going under % health (set in the menu after the AA)
-                    var soulhealthafter = soulmate.Health - damage;
-                    if (soulhealthafter < (soulmate.MaxHealth / 100 * kalm.Item("savesoulboundat", true).GetValue<Slider>().Value)) {
-                        R.Cast();
-                    }
-                }
-            } else {
-                //its spells if not AA...
-                var enemy = (Obj_AI_Hero)sender;
-                var slot = enemy.GetSpellSlot(args.SData.Name);
-                //check for ignite
-                if (slot != SpellSlot.Unknown && slot == enemy.GetSpellSlot("SummonerDot")) {
-                    var dmgonsoul = (float)enemy.GetSummonerSpellDamage(soulmate, Damage.SummonerSpell.Ignite);
-                    if (dmgonsoul > soulmate.Health) { R.Cast(); }
-                } else {
-                    //check against directed spells first which cant be dodged...
-                    if (args.SData.TargettingType == SpellDataTargetType.Unit) {
-                        var dmgonsoul = enemy.GetSpellDamage(soulmate, args.SData.Name);
-                        var soulhealthafter = soulmate.Health - dmgonsoul;
-                        if (dmgonsoul < soulmate.Health && soulhealthafter < (soulmate.MaxHealth / 100 * kalm.Item("savesoulboundat", true).GetValue<Slider>().Value)) {
+                    //save soul or pop E after the AA since the ult wont stop this AA but soulmate will be saved before the next one...
+                    if (damage * 2 > target.Health) {
+                        if (soulmate != null && target.NetworkId == soulmate.NetworkId && R.IsReady() && kalm.Item("savesoulbound", true).GetValue<Boolean>()) { R.Cast(); }
+                        if (target.NetworkId == Player.NetworkId && E.IsReady() && kalm.Item("popEbeforedying", true).GetValue<Boolean>()) { E.Cast(); }
+                    } else if (soulmate != null && target.NetworkId == soulmate.NetworkId && kalm.Item("savesoulbound", true).GetValue<Boolean>()) {
+                        //save if going under % health (set in the menu after the AA)
+                        var soulhealthafter = target.Health - damage;
+                        if (soulhealthafter < (target.MaxHealth / 100 * kalm.Item("savesoulboundat", true).GetValue<Slider>().Value) && kalm.Item("savesoulbound", true).GetValue<Boolean>()) {
                             R.Cast();
                         }
+                    }
+                } else {
+                    //its spells if not AA...
+                    var enemy = (Obj_AI_Hero)sender;
+                    var slot = enemy.GetSpellSlot(args.SData.Name);
+                    //check for ignite
+                    if (slot != SpellSlot.Unknown && slot == enemy.GetSpellSlot("SummonerDot")) {
+                        var dmgonsoul = (float)enemy.GetSummonerSpellDamage(target, Damage.SummonerSpell.Ignite);
+                        if (dmgonsoul > target.Health) {
+                            if (soulmate != null && target.NetworkId == soulmate.NetworkId && R.IsReady() && kalm.Item("savesoulbound", true).GetValue<Boolean>()) { R.Cast(); }
+                            if (target.NetworkId == Player.NetworkId && E.IsReady() && kalm.Item("popEbeforedying", true).GetValue<Boolean>()) { E.Cast(); }
+                        }
                     } else {
-                        //check against non directed spells which can be saved from...
-                        var dmgonsoul = enemy.GetSpellDamage(soulmate, args.SData.Name);
-                        var soulhealthafter = soulmate.Health - dmgonsoul;
-                        if (dmgonsoul > soulmate.Health) { R.Cast(); }
+                        //check against directed spells first which cant be dodged...
+                        if (args.SData.TargettingType == SpellDataTargetType.Unit) {
+                            var dmgonsoul = enemy.GetSpellDamage(target, args.SData.Name);
+                            var soulhealthafter = target.Health - dmgonsoul;
+                            if (dmgonsoul < target.Health && soulhealthafter < (target.MaxHealth / 100 * kalm.Item("savesoulboundat", true).GetValue<Slider>().Value)) {
+                                if (soulmate != null && target.NetworkId == soulmate.NetworkId && R.IsReady() && kalm.Item("savesoulbound", true).GetValue<Boolean>()) { R.Cast(); }
+                            }
+                        } else {
+                            //check against non directed spells which can be saved from...
+                            var dmgonsoul = enemy.GetSpellDamage(target, args.SData.Name);
+                            var soulhealthafter = target.Health - dmgonsoul;
+                            if (dmgonsoul > target.Health) {
+                                if (soulmate != null && target.NetworkId == soulmate.NetworkId && R.IsReady() && kalm.Item("savesoulbound", true).GetValue<Boolean>()) { R.Cast(); }
+                                if (target.NetworkId == Player.NetworkId && E.IsReady() && kalm.Item("popEbeforedying", true).GetValue<Boolean>()) { E.Cast(); }
+                            }
+                        }
                     }
                 }
+            }
+
+            //save from another kalistas spears...
+            var stacks = soulmate.GetBuffCount("kalistaexpungemarker");
+            if (stacks > 0) {
+                var enemykali = HeroManager.Enemies.Find(x => x.ChampionName == "Kalista");
+/*
+                if (enemykali != null && enemykali.ServerPosition.Distance(soulmate.ServerPosition) < E.Range) {
+                    if (enemykali.GetSpell(SpellSlot.E).IsReady()) {}
+                }
+*/
             }
         }
 
@@ -797,7 +816,12 @@ namespace Kalima {
             var stacks = target.GetBuffCount("kalistaexpungemarker");
             if (spears > 0) { stacks = spears; }
             if (stacks == 0) { return 1; }
-            return E.GetDamage(target);
+            if (target is Obj_AI_Hero) {
+                return E.GetDamage(target);
+            } else {
+                return E.GetDamage(target) - 10;
+            }
+
         }
 
         //idea from hellsing
@@ -817,10 +841,12 @@ namespace Kalima {
         static float? ecasttimer;
         static float? ecastlastusedon = Game.ClockTime;
         static void ECast() {
-            if (ecasttimer != null) {
-                if ((Game.ClockTime - ecasttimer) > 0.700) {//wait 500ms before using E again
-                    ecasttimer = null;
-                } else { return; }
+            if (kalm.Item("preventdouble", true).GetValue<Boolean>()) {
+                if (ecasttimer != null) {//preventdouble
+                    if ((Game.ClockTime - ecasttimer) > 0.700) {//wait 500ms before using E again
+                        ecasttimer = null;
+                    } else { return; }
+                }
             }
             ecasttimer = Game.ClockTime;
             ecastlastusedon = Game.ClockTime;
