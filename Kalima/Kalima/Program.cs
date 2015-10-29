@@ -47,6 +47,7 @@ namespace Kalima {
             Drawing.OnDraw += DraWing.Drawing_OnDraw;
             Obj_AI_Hero.OnProcessSpellCast += Event_OnProcessSpellCast;
             Orbwalking.OnNonKillableMinion += Event_OnNonKillableMinion;
+            AntiGapcloser.OnEnemyGapcloser += Event_OnEnemyGapcloser;
             Obj_AI_Hero.OnBuffAdd += Event_OnBuffAdd;
             FillPositions();
         }
@@ -142,6 +143,7 @@ namespace Kalima {
             AutoWSpots.AddItem(new MenuItem("Mid_Bot_River", "Baron", true).SetValue(true));
 
             MiscM.AddItem(new MenuItem("killsteal", "Kill Steal", true).SetValue(true));
+            MiscM.AddItem(new MenuItem("gapcloser", "use Q/E on GapCloser", true).SetValue(true));
             MiscM.AddItem(new MenuItem("savesoulbound", "Save Soulbound (With R)", true).SetValue(true));
             MiscM.AddItem(new MenuItem("savesoulboundat", "Save when health < %", true).SetValue(new Slider(25, 0, 100)));
             MiscM.AddItem(new MenuItem("preventdouble", "Prevent double E with timer", true).SetValue(true));
@@ -448,7 +450,7 @@ namespace Kalima {
             if (Player.IsDead) { return; }
             if (sender.IsMe && args.SData.Name == "KalistaExpungeWrapper") {
                 if (kalm.Item("autoresetAA", true).GetValue<Boolean>() && (Game.ClockTime - ecastlastusedon) > 0.800) {
-                    //Orbwalking.ResetAutoAttackTimer();
+                    Orbwalking.ResetAutoAttackTimer();
                 }
             }
 
@@ -462,7 +464,6 @@ namespace Kalima {
                     double damage = 0;
                     if (args.SData.Name.ToLower().Contains("crit")) {
                         damage += sender.GetAutoAttackDamage(target) * 2;
-                        //Console.WriteLine("Critical " + damage);
                         if (sender.InventoryItems.Any(item => item.Id.Equals(3031))) {
                             damage += damage * 1.25;
                         }
@@ -806,6 +807,15 @@ namespace Kalima {
         #endregion
 
         #region MISC FUNCTIONS
+
+        static void Event_OnEnemyGapcloser(ActiveGapcloser target) {
+            //gapcloser
+            if (kalm.Item("gapcloser", true).GetValue<Boolean>()) {
+                var source = target.Sender;
+                if (Q.CanCast(source)) { Q.Cast(source); }
+                if (E.CanCast(source)) { E.Cast(); }
+            }
+        }
 
         static float newEdamage(Obj_AI_Base target, int spears = 0) {
             var dmg = Player.GetDamageSpell(target,SpellSlot.E).CalculatedDamage;
