@@ -32,6 +32,7 @@ namespace Kalima {
         static Items.Item mercurial = new Items.Item(3139,0f);//debuff
         static Items.Item dervish = new Items.Item(3137, 0f);//debuff
         static Items.Item qss = new Items.Item(3140,0f);//debuff
+        static SpellSlot summHeal;
 
         static void Game_OnGameLoad(EventArgs args) {//"1 3 1 2 1 4 1 3 1 3 4 3 3 2 2 4 2 2";
             if (Player.ChampionName != "Kalista") { return; }
@@ -46,10 +47,12 @@ namespace Kalima {
             Drawing.OnDraw += Drawing_OnDraw;
             Drawing.OnDraw += DraWing.Drawing_OnDraw;
             Obj_AI_Hero.OnProcessSpellCast += Event_OnProcessSpellCast;
+            //Orbwalking.AfterAttackEvenH += Event_OnAfterattack;
             Orbwalking.OnNonKillableMinion += Event_OnNonKillableMinion;
             AntiGapcloser.OnEnemyGapcloser += Event_OnEnemyGapcloser;
             Obj_AI_Hero.OnBuffAdd += Event_OnBuffAdd;
             FillPositions();
+            summHeal = Player.GetSpellSlot("summonerheal");
         }
 
         static void Main(string[] args) { CustomEvents.Game.OnGameLoad += Game_OnGameLoad; }
@@ -142,8 +145,11 @@ namespace Kalima {
             AutoWSpots.AddItem(new MenuItem("Baron", "Baron", true).SetValue(true));
             AutoWSpots.AddItem(new MenuItem("Mid_Bot_River", "Baron", true).SetValue(true));
 
+            MiscM.AddItem(new MenuItem("useheal", "Use heal to save myself", true).SetValue(true));
+            MiscM.AddItem(new MenuItem("usehealat", "Use heal when health < %", true).SetValue(new Slider(20, 0, 100)));
+
             MiscM.AddItem(new MenuItem("killsteal", "Kill Steal", true).SetValue(true));
-            MiscM.AddItem(new MenuItem("gapcloser", "use Q/E on GapCloser", true).SetValue(true));
+            MiscM.AddItem(new MenuItem("gapcloser", "use Q on GapCloser", true).SetValue(true));
             MiscM.AddItem(new MenuItem("savesoulbound", "Save Soulbound (With R)", true).SetValue(true));
             MiscM.AddItem(new MenuItem("savesoulboundat", "Save when health < %", true).SetValue(new Slider(25, 0, 100)));
             MiscM.AddItem(new MenuItem("preventdouble", "Prevent double E with timer", true).SetValue(true));
@@ -187,10 +193,10 @@ namespace Kalima {
 
                 foreach (var enemy in HeroManager.Enemies.FindAll(x => x.IsEnemy)) {
                     targetselect.AddItem(new MenuItem("target" + enemy.ChampionName, enemy.ChampionName).SetValue(true));
-                    targetselect.AddItem(new MenuItem("maxhealth" + enemy.ChampionName, "Max Health to pull",true).SetValue(new Slider(100, 1, 100)));
+                    targetselect.AddItem(new MenuItem("maxhealth" + enemy.ChampionName, "Max Health to pull",true).SetValue(new Slider(200, 1, 100)));
                 }
                 if (blitzskarneringame.CharData.BaseSkinName == "Blitzcrank") {
-                    balista.AddItem(new MenuItem("balistaminrangefromsoul", "Min Range enemy from Soulmate", true).SetValue(new Slider(50, 0, 925)));
+                    balista.AddItem(new MenuItem("balistaminrangefromsoul", "Min Range enemy from Soulmate", true).SetValue(new Slider(300, 300, 925)));
                 }
                 balista.AddItem(new MenuItem("balistaminrange", "Min Range me from Soulmate", true).SetValue(new Slider(450, 450, 1400)));
                 balista.AddItem(new MenuItem("balistamaxrange", "Max Range me from soulmate", true).SetValue(new Slider(1400, 500, 1400)));
@@ -253,6 +259,7 @@ namespace Kalima {
 
         #region HARASS
 
+        
         static void harass() {
             var lqmana = kalm.Item("harassmanaminQ", true).GetValue<Slider>().Value;
             var lemana = kalm.Item("harassmanaminE", true).GetValue<Slider>().Value;
@@ -263,7 +270,7 @@ namespace Kalima {
 
             if (kalm.Item("harassQ", true).GetValue<Boolean>() && mymana > lqmana && Q.IsReady(1)) {
                 var enemies = HeroManager.Enemies.FindAll(h =>
-                    h.IsValidTarget(Q.Range) && Q.CanCast(h) &&
+                    Player.ServerPosition.Distance(h.ServerPosition) < Q.Range && Q.CanCast(h) &&
                     ((Q.GetPrediction(h).Hitchance >= gethitchanceQ) ||
                     (Q.GetPrediction(h).Hitchance == HitChance.Collision)));
                 if (enemies != null) {
@@ -332,9 +339,8 @@ namespace Kalima {
         }
 
         static void Killsteal() {
-            foreach (var enemy in ObjectManager.Get<Obj_AI_Hero>().Where(h => Q.CanCast(h) || ECanCast(h))) {
+            foreach (var enemy in ObjectManager.Get<Obj_AI_Hero>().Where(h => (Q.CanCast(h) && Player.ServerPosition.Distance(h.ServerPosition) < Q.Range) || ECanCast(h))) {
                 if (hasundyingbuff(enemy)) { continue; }
-                //var edmg = GetEDamage(enemy);
                 var edmg = GetEDamage(enemy);
                 var enemyhealth = enemy.Health;
                 var enemyregen = enemy.HPRegenRate / 2;
@@ -410,10 +416,11 @@ namespace Kalima {
 
             if (kalm.Item("laneclearE", true).GetValue<Boolean>() && E.IsReady() && mymana >= lemana && !Player.IsDashing()) {
                 var minhealth = kalm.Item("laneclearEminhealth", true).GetValue<Slider>().Value;
-                var minionsE = Minions.FindAll(x => (x.Health + (x.HPRegenRate / 2)) < GetEDamage(x) && ECanCast(x) && x.HealthPercent >= minhealth);
+                var minionsE = Minions.FindAll(x => (x.Health + (x.HPRegenRate / 2)) < GetEDamage(x) && ECanCast(x));
+                var minionEE = minionsE.Find(x => x.HealthPercent >= minhealth);
                 double laneclearE = kalm.Item("laneclearEcast", true).GetValue<Slider>().Value;
                 double incrementE = kalm.Item("laneclearEcastincr", true).GetValue<Slider>().Value;
-                if (minionsE != null && minionsE.Count() >= Math.Round(laneclearE + (Player.Level * (incrementE / 10)))) {
+                if (minionsE != null && minionEE != null && minionsE.Count() >= Math.Round(laneclearE + (Player.Level * (incrementE / 10)))) {
                     ECast();
                 } else if (minionsE != null && kalm.Item("laneclearbigminionsE", true).GetValue<Boolean>()) { //kill siege/super minions when it can E
                     var bigminion = minionsE.Find(x => x.CharData.BaseSkinName.ToLower().Contains("siege") || x.CharData.BaseSkinName.ToLower().Contains("super"));
@@ -474,7 +481,11 @@ namespace Kalima {
                     //save soul or pop E after the AA since the ult wont stop this AA but soulmate will be saved before the next one...
                     if (damage * 2 > target.Health) {
                         if (soulmate != null && target.NetworkId == soulmate.NetworkId && R.IsReady() && kalm.Item("savesoulbound", true).GetValue<Boolean>()) { R.Cast(); }
-                        if (target.NetworkId == Player.NetworkId && E.IsReady() && kalm.Item("popEbeforedying", true).GetValue<Boolean>()) { E.Cast(); }
+                        if (target.NetworkId == Player.NetworkId) {
+                            if (E.IsReady() && kalm.Item("popEbeforedying", true).GetValue<Boolean>()) { E.Cast(); }
+                            if (summHeal != SpellSlot.Unknown && summHeal.IsReady()) { Player.Spellbook.CastSpell(summHeal); }
+                        }
+
                     } else if (soulmate != null && target.NetworkId == soulmate.NetworkId && kalm.Item("savesoulbound", true).GetValue<Boolean>()) {
                         //save if going under % health (set in the menu after the AA)
                         var soulhealthafter = target.Health - damage;
@@ -491,7 +502,10 @@ namespace Kalima {
                         var dmgonsoul = (float)enemy.GetSummonerSpellDamage(target, Damage.SummonerSpell.Ignite);
                         if (dmgonsoul > target.Health) {
                             if (soulmate != null && target.NetworkId == soulmate.NetworkId && R.IsReady() && kalm.Item("savesoulbound", true).GetValue<Boolean>()) { R.Cast(); }
-                            if (target.NetworkId == Player.NetworkId && E.IsReady() && kalm.Item("popEbeforedying", true).GetValue<Boolean>()) { E.Cast(); }
+                            if (target.NetworkId == Player.NetworkId) {
+                                if (E.IsReady() && kalm.Item("popEbeforedying", true).GetValue<Boolean>()) { E.Cast(); }
+                                if (summHeal != SpellSlot.Unknown && summHeal.IsReady()) { Player.Spellbook.CastSpell(summHeal); }
+                            }
                         }
                     } else {
                         //check against directed spells first which cant be dodged...
@@ -501,13 +515,21 @@ namespace Kalima {
                             if (dmgonsoul < target.Health && soulhealthafter < (target.MaxHealth / 100 * kalm.Item("savesoulboundat", true).GetValue<Slider>().Value)) {
                                 if (soulmate != null && target.NetworkId == soulmate.NetworkId && R.IsReady() && kalm.Item("savesoulbound", true).GetValue<Boolean>()) { R.Cast(); }
                             }
+                            if (dmgonsoul < target.Health && soulhealthafter < (target.MaxHealth / 100 * kalm.Item("usehealat", true).GetValue<Slider>().Value)) {
+                                if (target.NetworkId == Player.NetworkId && kalm.Item("useheal", true).GetValue<Boolean>()) {
+                                    if (summHeal != SpellSlot.Unknown && summHeal.IsReady()) { Player.Spellbook.CastSpell(summHeal); }
+                                }
+                            }
                         } else {
                             //check against non directed spells which can be saved from...
                             var dmgonsoul = enemy.GetSpellDamage(target, args.SData.Name);
                             var soulhealthafter = target.Health - dmgonsoul;
                             if (dmgonsoul > target.Health) {
                                 if (soulmate != null && target.NetworkId == soulmate.NetworkId && R.IsReady() && kalm.Item("savesoulbound", true).GetValue<Boolean>()) { R.Cast(); }
-                                if (target.NetworkId == Player.NetworkId && E.IsReady() && kalm.Item("popEbeforedying", true).GetValue<Boolean>()) { E.Cast(); }
+                                if (target.NetworkId == Player.NetworkId) {
+                                    if (E.IsReady() && kalm.Item("popEbeforedying", true).GetValue<Boolean>()) { E.Cast(); }
+                                    if (summHeal != SpellSlot.Unknown && summHeal.IsReady()) { Player.Spellbook.CastSpell(summHeal); }
+                                }
                             }
                         }
                     }
@@ -812,8 +834,8 @@ namespace Kalima {
             //gapcloser
             if (kalm.Item("gapcloser", true).GetValue<Boolean>()) {
                 var source = target.Sender;
+                if (Player.Position.Distance(source.Position) > Q.Range) { return; }
                 if (Q.CanCast(source)) { Q.Cast(source); }
-                if (E.CanCast(source)) { E.Cast(); }
             }
         }
 
