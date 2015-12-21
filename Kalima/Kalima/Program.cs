@@ -149,6 +149,8 @@ namespace Kalima {
             MiscM.AddItem(new MenuItem("usehealat", "Use heal when health < %", true).SetValue(new Slider(20, 0, 100)));
 
             MiscM.AddItem(new MenuItem("killsteal", "Kill Steal", true).SetValue(true));
+            MiscM.AddItem(new MenuItem("randomizeEpop", "Look more human by failing E pop on kill?", true).SetValue(true));
+            MiscM.AddItem(new MenuItem("randomizeEpopminkills", "Min kills to randomize E pop", true).SetValue(new Slider(3, 1, 50)));
             MiscM.AddItem(new MenuItem("gapcloser", "use Q on GapCloser", true).SetValue(true));
             MiscM.AddItem(new MenuItem("savesoulbound", "Save Soulbound (With R)", true).SetValue(true));
             MiscM.AddItem(new MenuItem("savesoulboundat", "Save when health < %", true).SetValue(new Slider(25, 0, 100)));
@@ -258,7 +260,6 @@ namespace Kalima {
         #endregion
 
         #region HARASS
-
         
         static void harass() {
             var lqmana = kalm.Item("harassmanaminQ", true).GetValue<Slider>().Value;
@@ -340,11 +341,18 @@ namespace Kalima {
 
         static void Killsteal() {
             foreach (var enemy in ObjectManager.Get<Obj_AI_Hero>().Where(h => (Q.CanCast(h) && Player.ServerPosition.Distance(h.ServerPosition) < Q.Range) || ECanCast(h))) {
-                if (hasundyingbuff(enemy)) { continue; }
+                if (hasundyingbuff(enemy) || ECanCast(enemy)) { continue; }
                 var edmg = GetEDamage(enemy);
                 var enemyhealth = enemy.Health;
                 var enemyregen = enemy.HPRegenRate / 2;
-                if (((enemyhealth + enemyregen) <= edmg) && ECanCast(enemy) && !hasundyingbuff(enemy)) { ECast(); return; }
+                if (kalm.Item("randomizeEpop", true).GetValue<Boolean>() && Player.ChampionsKilled >= kalm.Item("randomizeEpopminkills", true).GetValue<Slider>().Value) {
+                    Random random = new Random();
+                    int randomNumber = random.Next(0,1);                    
+                    if (((enemyhealth + enemyregen + Player.GetAutoAttackDamage(enemy)) <= edmg) && randomNumber == 1) {
+                        ECast();return;
+                    }
+                }
+                if ((enemyhealth + enemyregen) <= edmg) { ECast(); return; }
                 if (Q.GetPrediction(enemy).Hitchance >= HitChance.High && Q.CanCast(enemy)) {
                     var qdamage = Q.GetDamage(enemy);
                     if ((qdamage + edmg) >= (enemyhealth + enemyregen)) {
