@@ -339,19 +339,37 @@ namespace Kalima {
             return Collision.GetCollision(new List<Vector3> { targetposition }, input).OrderBy(obj => obj.Distance(source, false)).ToList();
         }
 
+        static float? eRandomPoptimer;
+        static float? eRandomlastusedon = Game.ClockTime;
+        static int ERand() {
+            if (kalm.Item("randomizeEpop", true).GetValue<Boolean>() && Player.ChampionsKilled >= kalm.Item("randomizeEpopminkills", true).GetValue<Slider>().Value) {
+                if (eRandomPoptimer != null) {
+                    if ((Game.ClockTime - eRandomPoptimer) > 5.000) {//wait 5000ms before checking ERand again..
+                        eRandomPoptimer = null;
+                    } else { return 0; }
+                }
+            } else { return 0; }
+            eRandomPoptimer = Game.ClockTime;
+            eRandomlastusedon = Game.ClockTime;
+            Random random = new Random();
+            int randomNumber = random.Next(0, 1);
+            if (randomNumber == 1) { return 1; }
+            return 0;
+        }
+
         static void Killsteal() {
             foreach (var enemy in ObjectManager.Get<Obj_AI_Hero>().Where(h => (Q.CanCast(h) && Player.ServerPosition.Distance(h.ServerPosition) < Q.Range) || ECanCast(h))) {
-                if (hasundyingbuff(enemy) || ECanCast(enemy)) { continue; }
+                if (hasundyingbuff(enemy) || !ECanCast(enemy)) { continue; }
                 var edmg = GetEDamage(enemy);
                 var enemyhealth = enemy.Health;
                 var enemyregen = enemy.HPRegenRate / 2;
-                if (kalm.Item("randomizeEpop", true).GetValue<Boolean>() && Player.ChampionsKilled >= kalm.Item("randomizeEpopminkills", true).GetValue<Slider>().Value) {
-                    Random random = new Random();
-                    int randomNumber = random.Next(0,1);                    
-                    if (((enemyhealth + enemyregen + Player.GetAutoAttackDamage(enemy)) <= edmg) && randomNumber == 1) {
-                        ECast();return;
-                    }
+
+                //check against erand..
+                if (((enemyhealth + enemyregen + Player.GetAutoAttackDamage(enemy)*2) <= edmg) && ERand() == 1) {
+                    ECast(); return;
                 }
+
+                //normal e pop..
                 if ((enemyhealth + enemyregen) <= edmg) { ECast(); return; }
                 if (Q.GetPrediction(enemy).Hitchance >= HitChance.High && Q.CanCast(enemy)) {
                     var qdamage = Q.GetDamage(enemy);
@@ -469,7 +487,7 @@ namespace Kalima {
                 }
             }
 
-            if (sender.IsEnemy && sender.IsValidTarget() && sender.IsVisible && args.Target != null &&
+            if (sender.IsEnemy && sender.IsVisible && args.Target != null &&
                 (args.Target.NetworkId == Player.NetworkId || (soulmate != null && args.Target.NetworkId == soulmate.NetworkId))) {
 
                 var target = args.Target as Obj_AI_Hero;

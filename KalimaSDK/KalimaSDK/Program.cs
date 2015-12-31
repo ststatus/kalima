@@ -10,11 +10,12 @@ using System.Windows.Forms;
 using LeagueSharp;
 using LeagueSharp.SDK.Core;
 using LeagueSharp.SDK.Core.Enumerations;
+using LeagueSharp.SDK.Core.Events;
 using LeagueSharp.SDK.Core.UI.IMenu;
 using LeagueSharp.SDK.Core.UI.IMenu.Values;
 using LeagueSharp.SDK.Core.UI.IMenu.Abstracts;
 using LeagueSharp.SDK.Core.Events;
-using LeagueSharp.SDK.Core.IDrawing;
+//using LeagueSharp.SDK.Core.IDrawing;
 using LeagueSharp.SDK.Core.Extensions;
 using LeagueSharp.SDK.Core.Extensions.SharpDX;
 using LeagueSharp.SDK.Core.Utils;
@@ -68,7 +69,7 @@ namespace Kalima {
 //            Drawing.OnDraw += Drawing_OnDraw;
             Drawing.OnDraw += DraWing.Drawing_OnDraw;
             Obj_AI_Hero.OnProcessSpellCast += Event_OnProcessSpellCast;
-            Orbwalker.OnAction += Event_OnAction;
+//            Orbwalker.OnAction += Event_OnAction;
 //            Obj_AI_Hero.OnBuffAdd += Event_OnBuffAdd;
 //            FillPositions();
         }
