@@ -73,7 +73,7 @@ namespace Kalima {
             Menu DrawM = kalimenu.AddSubMenu(new Menu("Drawing", "Drawing"));
 
             haraM.AddItem(new MenuItem("harassQ", "Use Q", true).SetValue(true));
-            haraM.AddItem(new MenuItem("harassQchance", "Q cast if Chance of hit is:", true).SetValue(new Slider(3, 1, 4)));
+            haraM.AddItem(new MenuItem("harassQchance", "Q cast if Chance of hit is:", true).SetValue(new Slider(2, 1, 4)));
             haraM.AddItem(new MenuItem("harassmanaminQ", "Q requires % mana", true).SetValue(new Slider(70, 0, 100)));
             haraM.AddItem(new MenuItem("harassuseE", "Use E", true).SetValue(true));
             haraM.AddItem(new MenuItem("harassEoutOfRange", "Use E when out of range", true).SetValue(true));
@@ -214,7 +214,7 @@ namespace Kalima {
         static float? onupdatetimers;
         static void Game_OnUpdate(EventArgs args) {
             if (onupdatetimers != null) {
-                if ((Game.ClockTime - onupdatetimers) > (1 / kalm.Item("onupdateT", true).GetValue<Slider>().Value)) {
+                if ((DateTime.Now.Ticks - onupdatetimers) > (1*10000000 / kalm.Item("onupdateT", true).GetValue<Slider>().Value)) {
                     onupdatetimers = null;
                 } else { return; }
             }
@@ -253,7 +253,7 @@ namespace Kalima {
                 case Orbwalking.OrbwalkingMode.LastHit:
                     break;
             }
-            onupdatetimers = Game.ClockTime;
+            onupdatetimers = DateTime.Now.Ticks;
             //buffadd just sucks and adds buffs too late..not feasible for balista or debuffs....
             debuff();
         }
@@ -481,6 +481,7 @@ namespace Kalima {
         static void Event_OnProcessSpellCast(Obj_AI_Base sender, GameObjectProcessSpellCastEventArgs args) {
             //credits to hellsing on the whole R save idea
             if (Player.IsDead) { return; }
+            if (sender.IsMe && args.Target.IsAlly || sender.IsAlly && args.Target.IsMe) { return; }//dont process spells from me to allies and vice versa...
             if (sender.IsMe && args.SData.Name == "KalistaExpungeWrapper") {
                 if (kalm.Item("autoresetAA", true).GetValue<Boolean>() && (Game.ClockTime - ecastlastusedon) > 0.800) {
                     Orbwalking.ResetAutoAttackTimer();
@@ -897,17 +898,17 @@ namespace Kalima {
 
         //prevent double E's which put E on cooldown
         static float? ecasttimer;
-        static float? ecastlastusedon = Game.ClockTime;
+        static float? ecastlastusedon = DateTime.Now.Ticks;
         static void ECast() {
             if (kalm.Item("preventdouble", true).GetValue<Boolean>()) {
                 if (ecasttimer != null) {//preventdouble
-                    if ((Game.ClockTime - ecasttimer) > 0.700) {//wait 500ms before using E again
+                    if ((DateTime.Now.Ticks - ecasttimer) > 7000000) {//wait 0.7ms before using E again
                         ecasttimer = null;
                     } else { return; }
                 }
             }
-            ecasttimer = Game.ClockTime;
-            ecastlastusedon = Game.ClockTime;
+            ecasttimer = DateTime.Now.Ticks;
+            ecastlastusedon = DateTime.Now.Ticks;
             E.Cast();
         }
 
@@ -915,7 +916,7 @@ namespace Kalima {
             if (!E.IsReady() || !E.CanCast(target)) { return false; }
             var cancast = false;
             if (ecasttimer != null) {
-                if ((Game.ClockTime - ecasttimer) > 0.700) {//check with e's timer
+                if ((DateTime.Now.Ticks - ecasttimer) > 7000000) {//check with e's timer
                     ecasttimer = null;
                     cancast = true;
                 } else { return false; }
