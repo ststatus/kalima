@@ -211,10 +211,10 @@ namespace Kalima {
         #endregion
 
         #region EVENT GAME ON UPDATE
-        static float? onupdatetimers;
+        static long? onupdatetimers;
         static void Game_OnUpdate(EventArgs args) {
             if (onupdatetimers != null) {
-                if ((Game.ClockTime - onupdatetimers) > (1 / kalm.Item("onupdateT", true).GetValue<Slider>().Value)) {
+                if ((DateTime.Now.Ticks - onupdatetimers) > (1*10000000 / kalm.Item("onupdateT", true).GetValue<Slider>().Value)) {
                     onupdatetimers = null;
                 } else { return; }
             }
@@ -253,7 +253,7 @@ namespace Kalima {
                 case Orbwalking.OrbwalkingMode.LastHit:
                     break;
             }
-            onupdatetimers = Game.ClockTime;
+            onupdatetimers = DateTime.Now.Ticks;
             //buffadd just sucks and adds buffs too late..not feasible for balista or debuffs....
             debuff();
         }
@@ -480,9 +480,10 @@ namespace Kalima {
 
         static void Event_OnProcessSpellCast(Obj_AI_Base sender, GameObjectProcessSpellCastEventArgs args) {
             //credits to hellsing on the whole R save idea
-            if (Player.IsDead) { return; }
+            if (Player.IsDead || sender == null || args == null || args.Target == null) { return; }
+            if (args.Target.NetworkId != Player.NetworkId || (soulmate != null && args.Target.NetworkId != soulmate.NetworkId)) { return; }
             if (sender.IsMe && args.SData.Name == "KalistaExpungeWrapper") {
-                if (kalm.Item("autoresetAA", true).GetValue<Boolean>() && (Game.ClockTime - ecastlastusedon) > 0.800) {
+                if (kalm.Item("autoresetAA", true).GetValue<Boolean>() && (DateTime.Now.Ticks - ecastlastusedon) > 8000000) {
                     Orbwalking.ResetAutoAttackTimer();
                 }
             }
@@ -896,18 +897,18 @@ namespace Kalima {
         }
 
         //prevent double E's which put E on cooldown
-        static float? ecasttimer;
-        static float? ecastlastusedon = Game.ClockTime;
+        static long? ecasttimer;
+        static long? ecastlastusedon = DateTime.Now.Ticks;
         static void ECast() {
             if (kalm.Item("preventdouble", true).GetValue<Boolean>()) {
                 if (ecasttimer != null) {//preventdouble
-                    if ((Game.ClockTime - ecasttimer) > 1.000) {//wait 1s before using E again
+                    if ((DateTime.Now.Ticks - ecasttimer) > 7000000) {//wait 0.7ms before using E again
                         ecasttimer = null;
                     } else { return; }
                 }
             }
-            ecasttimer = Game.ClockTime;
-            ecastlastusedon = Game.ClockTime;
+            ecasttimer = DateTime.Now.Ticks;
+            ecastlastusedon = DateTime.Now.Ticks;
             E.Cast();
         }
 
@@ -915,7 +916,7 @@ namespace Kalima {
             if (!E.IsReady() || !E.CanCast(target)) { return false; }
             var cancast = false;
             if (ecasttimer != null) {
-                if ((Game.ClockTime - ecasttimer) > 1.000) {//check with e's timer
+                if ((DateTime.Now.Ticks - ecasttimer) > 7000000) {//check with e's timer
                     ecasttimer = null;
                     cancast = true;
                 } else { return false; }
