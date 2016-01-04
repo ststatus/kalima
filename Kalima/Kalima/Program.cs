@@ -214,7 +214,7 @@ namespace Kalima {
         static float? onupdatetimers;
         static void Game_OnUpdate(EventArgs args) {
             if (onupdatetimers != null) {
-                if ((DateTime.Now.Ticks - onupdatetimers) > (1*10000000 / kalm.Item("onupdateT", true).GetValue<Slider>().Value)) {
+                if ((Game.ClockTime - onupdatetimers) > (1 / kalm.Item("onupdateT", true).GetValue<Slider>().Value)) {
                     onupdatetimers = null;
                 } else { return; }
             }
@@ -253,7 +253,7 @@ namespace Kalima {
                 case Orbwalking.OrbwalkingMode.LastHit:
                     break;
             }
-            onupdatetimers = DateTime.Now.Ticks;
+            onupdatetimers = Game.ClockTime;
             //buffadd just sucks and adds buffs too late..not feasible for balista or debuffs....
             debuff();
         }
