@@ -481,7 +481,6 @@ namespace Kalima {
         static void Event_OnProcessSpellCast(Obj_AI_Base sender, GameObjectProcessSpellCastEventArgs args) {
             //credits to hellsing on the whole R save idea
             if (Player.IsDead) { return; }
-            if (sender.IsMe && args.Target.IsAlly || sender.IsAlly && args.Target.IsMe) { return; }//dont process spells from me to allies and vice versa...
             if (sender.IsMe && args.SData.Name == "KalistaExpungeWrapper") {
                 if (kalm.Item("autoresetAA", true).GetValue<Boolean>() && (Game.ClockTime - ecastlastusedon) > 0.800) {
                     Orbwalking.ResetAutoAttackTimer();
@@ -898,17 +897,17 @@ namespace Kalima {
 
         //prevent double E's which put E on cooldown
         static float? ecasttimer;
-        static float? ecastlastusedon = DateTime.Now.Ticks;
+        static float? ecastlastusedon = Game.ClockTime;
         static void ECast() {
             if (kalm.Item("preventdouble", true).GetValue<Boolean>()) {
                 if (ecasttimer != null) {//preventdouble
-                    if ((DateTime.Now.Ticks - ecasttimer) > 7000000) {//wait 0.7ms before using E again
+                    if ((Game.ClockTime - ecasttimer) > 1.000) {//wait 1s before using E again
                         ecasttimer = null;
                     } else { return; }
                 }
             }
-            ecasttimer = DateTime.Now.Ticks;
-            ecastlastusedon = DateTime.Now.Ticks;
+            ecasttimer = Game.ClockTime;
+            ecastlastusedon = Game.ClockTime;
             E.Cast();
         }
 
@@ -916,7 +915,7 @@ namespace Kalima {
             if (!E.IsReady() || !E.CanCast(target)) { return false; }
             var cancast = false;
             if (ecasttimer != null) {
-                if ((DateTime.Now.Ticks - ecasttimer) > 7000000) {//check with e's timer
+                if ((Game.ClockTime - ecasttimer) > 1.000) {//check with e's timer
                     ecasttimer = null;
                     cancast = true;
                 } else { return false; }
