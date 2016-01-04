@@ -654,17 +654,17 @@ namespace Kalima {
         #endregion
 
         #region EVENT ON DRAW
-        static float? ondrawtimers;
+        static long? ondrawtimers;
         static void Drawing_OnDraw(EventArgs args) {
             if (Player.IsDead) { return; }
             var curposition = Player.Position;
-            var ondrawmenutimer = (1 / kalm.Item("ondrawT", true).GetValue<Slider>().Value);
+
             if (ondrawtimers != null) {
-                if ((Game.ClockTime - ondrawtimers) > ondrawmenutimer) {
+                if ((DateTime.Now.Ticks - ondrawtimers) > (1 * 10000000 / kalm.Item("ondrawT", true).GetValue<Slider>().Value)) {
                     ondrawtimers = null;
                 } else { return; }
             }
-            ondrawtimers = Game.ClockTime;
+            ondrawtimers = DateTime.Now.Ticks;
 
             var dAA = kalm.Item("drawAA").GetValue<Circle>();
             var dQ = kalm.Item("drawQ").GetValue<Circle>();
@@ -721,12 +721,12 @@ namespace Kalima {
                             if (lineformat != null && isbalista(soulmate)) {
                                 foreach (var x in lineformat) {
                                     if (isbalista(x)) {
-                                        DraWing.drawline("drawtargetline" + x.CharData.BaseSkinName, ondrawmenutimer, x.HPBarPosition.X, x.HPBarPosition.Y, soulmate.HPBarPosition.X, soulmate.HPBarPosition.Y, 2.0f, Color.Red);
+                                        DraWing.drawline("drawtargetline" + x.CharData.BaseSkinName, 1, x.HPBarPosition.X, x.HPBarPosition.Y, soulmate.HPBarPosition.X, soulmate.HPBarPosition.Y, 2.0f, Color.Red);
                                         foundvalidtarget++;
                                     }
                                 }
                                 if (foundvalidtarget > 0) {
-                                    DraWing.drawline("drawsoulmate", ondrawmenutimer, soulmate.HPBarPosition.X, soulmate.HPBarPosition.Y, Player.HPBarPosition.X, Player.HPBarPosition.Y, 2.0f, Color.Red);
+                                    DraWing.drawline("drawsoulmate", 1, soulmate.HPBarPosition.X, soulmate.HPBarPosition.Y, Player.HPBarPosition.X, Player.HPBarPosition.Y, 2.0f, Color.Red);
                                 }
                             }
                         }
@@ -746,7 +746,7 @@ namespace Kalima {
                         var start = pos + (new Vector2(10f, 19f));
                         var end = pos + (new Vector2(10f + percent, 19f));
 
-                        DraWing.drawline("drawEdmg" + enemy.ChampionName, ondrawmenutimer, start[0], start[1], end[0], end[1], 4.0f, dEDmG.Color);
+                        DraWing.drawline("drawEdmg" + enemy.ChampionName, 1, start[0], start[1], end[0], end[1], 4.0f, dEDmG.Color);
                     }
                 }
             }
@@ -770,7 +770,7 @@ namespace Kalima {
                                         break;
                                     }
                                 }
-                                DraWing.drawtext("drawEspears", ondrawmenutimer, enemy.HPBarPosition.X + 150, enemy.HPBarPosition.Y + 19, dEsps.Color, "[E: " + spearcount + " / L: " + (kill + 1) + "]");
+                                DraWing.drawtext("drawEspears", 1, enemy.HPBarPosition.X + 150, enemy.HPBarPosition.Y + 19, dEsps.Color, "[E: " + spearcount + " / L: " + (kill + 1) + "]");
                                 break;
                             }
                         }
