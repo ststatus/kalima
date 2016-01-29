@@ -8,26 +8,21 @@ using System.Drawing;
 using System.ComponentModel;
 using System.Windows.Forms;
 using LeagueSharp;
+using LeagueSharp.SDK;
 using LeagueSharp.SDK.Core;
-using LeagueSharp.SDK.Core.Enumerations;
-using LeagueSharp.SDK.Core.Events;
 using LeagueSharp.SDK.Core.UI.IMenu;
 using LeagueSharp.SDK.Core.UI.IMenu.Values;
 using LeagueSharp.SDK.Core.UI.IMenu.Abstracts;
-using LeagueSharp.SDK.Core.Events;
-//using LeagueSharp.SDK.Core.IDrawing;
-using LeagueSharp.SDK.Core.Extensions;
-using LeagueSharp.SDK.Core.Extensions.SharpDX;
+using LeagueSharp.SDK.Core.Wrappers.Damages;
+using LeagueSharp.SDK.Modes;
 using LeagueSharp.SDK.Core.Utils;
-using LeagueSharp.SDK.Core.Math.Prediction;
 using LeagueSharp.SDK.Core.Wrappers;
+using Collision = LeagueSharp.SDK.Collision;
 using SharpDX;
 using SharpDX.Direct3D9;
-using Collision = LeagueSharp.SDK.Core.Math.Collision;
 using ColorBGRA = SharpDX.ColorBGRA;
 using Color = System.Drawing.Color;
 using Menu = LeagueSharp.SDK.Core.UI.IMenu.Menu;
-using Spell = LeagueSharp.SDK.Core.Wrappers.Spell;
 #endregion
 
 namespace Kalima {
@@ -74,7 +69,7 @@ namespace Kalima {
 //            FillPositions();
         }
         [STAThread]//STAT (windows.forms att warning fix)
-        static void Main(string[] args) { Load.OnLoad += Game_OnGameLoad; }
+        static void Main(string[] args) { Events.OnLoad += Game_OnGameLoad; }
         #endregion
 
         #region MENU
@@ -198,13 +193,13 @@ namespace Kalima {
 //                ShowjumpsandFlee();
             }
 
-            switch (Orbwalker.ActiveMode) {
-                case OrbwalkerMode.LaneClear:
+            switch (Variables.Orbwalker.GetActiveMode()) {
+                case OrbwalkingMode.LaneClear:
                     laneclear();
                     break;
-                case OrbwalkerMode.LastHit:
+                case OrbwalkingMode.LastHit:
                     break;
-                case OrbwalkerMode.Hybrid:
+                case OrbwalkingMode.Hybrid:
                     break;
             }
             onupdatetimers = Game.ClockTime;
@@ -565,7 +560,7 @@ namespace Kalima {
         #endregion
 
         #region MISC EVENTS
-        static void Event_OnAction(object sender, Orbwalker.OrbwalkerActionArgs e) {if (e.Type == OrbwalkerType.NonKillableMinion) {Event_OnNonKillableMinion((Obj_AI_Minion)e.Target);}}
+        static void Event_OnAction(object sender, OrbwalkingActionArgs e) {if (e.Type == OrbwalkingType.NonKillableMinion) {Event_OnNonKillableMinion((Obj_AI_Minion)e.Target);}}
         static void Event_OnNonKillableMinion(Obj_AI_Minion minion) {
             var minionX = minion;
             if (!MLaneClear["laneclearE"].GetValue<MenuBool>().Value || !E.IsReady() || !ECanCast(minionX)) { return; }
@@ -584,7 +579,7 @@ namespace Kalima {
             if (!Mmisc["savesoulbound"].GetValue<MenuBool>().Value) { return; }
             if (sender.IsMe) {
                 if (args.SData.Name == "KalistaExpungeWrapper") {
-                    Orbwalker.ResetAutoAttackTimer(); //dont reset because it does double E's and puts E on cooldown
+                    //Orbwalker.ResetAutoAttackTimer(); //dont reset because it does double E's and puts E on cooldown
                 }
             }
             if (sender.IsEnemy && sender.Distance(soulmate.ServerPosition) < 1500f) {
