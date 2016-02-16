@@ -57,7 +57,7 @@ namespace Kalima {
         static float Manapercent { get { return Player.ManaPercent; } }
         static bool spellsreadyEQ { get { if (E.IsReady() && Q.IsReady()) { return true; };return false; } }
         static bool spellsEQmana { get { if (Player.Mana > (E.ManaCost + Q.ManaCost)) { return true; } return false; } }
-        static bool playerisready { get { if (Player.IsRecalling() || Player.IsCastingInterruptableSpell() || Player.IsDead) { return false; };return true; } }
+        static bool playerisready { get { if (Player.IsRecalling() || Player.IsDead) { return false; };return true; } }
         static bool canuseheal = false;
         static long? onupdatetimers20000 = DateTime.Now.Ticks;
         static bool onupdate20000 { get { if ((DateTime.Now.Ticks - onupdatetimers20000) > 200000000) { onupdatetimers20000 = DateTime.Now.Ticks; return true; }; return false; } }
@@ -103,7 +103,7 @@ namespace Kalima {
             if (Player.ChampionName != "Kalista") { return; }
             Q = new Spell(SpellSlot.Q, 1150f);
             Q.SetSkillshot(0.25f, 40f, 1700f, true, SkillshotType.SkillshotLine);
-            W = new Spell(SpellSlot.W, 5200f);
+            W = new Spell(SpellSlot.W, 5000f);
             E = new Spell(SpellSlot.E, 1200f);
             R = new Spell(SpellSlot.R, 1400f);
 
@@ -417,17 +417,8 @@ namespace Kalima {
 
             }
             if (onupdate200) {
-                if (killsteal) {
-                    Killsteal();
-                }
                 if (fleeKey) {
                     ShowjumpsandFlee();
-                }
-                if (jungleActive) {
-                    //Jungleclear();
-                }
-                if (harassActive || Orbwalker.ActiveMode == Orbwalking.OrbwalkingMode.Mixed) {
-                    harass();
                 }
                 //buffadd just sucks and adds buffs too late..not feasible for balista or debuffs....
                 debuff();
@@ -437,11 +428,20 @@ namespace Kalima {
                 }
             }
             if (onupdate100) {
+                if (killsteal) {
+                    Killsteal();
+                }
+                if (harassActive || Orbwalker.ActiveMode == Orbwalking.OrbwalkingMode.Mixed) {
+                    harass();
+                }
                 if (Orbwalker.ActiveMode == Orbwalking.OrbwalkingMode.LaneClear || Orbwalker.ActiveMode == Orbwalking.OrbwalkingMode.LastHit) {
                     laneclear();
                 }
             }
             if (onupdate50) {
+                if (jungleActive) {
+                    Jungleclear();
+                }
             }
         }
 
@@ -487,6 +487,23 @@ namespace Kalima {
             }
             if (ondraw50) {
             }
+            //realtime
+            if (drawEdmg.Active && E.Level > 0) {
+                var enemieswithspears = HeroManager.Enemies.Where(x => x.HasBuff("kalistaexpungemarker") && x.IsHPBarRendered);
+                if (enemieswithspears != null) {
+                    var barsize = 104f;
+                    foreach (var enemy in enemieswithspears) {
+                        var health = enemy.Health;
+                        var maxhealth = enemy.MaxHealth;
+                        var pos = enemy.HPBarPosition;
+                        var percent = GetEDamage(enemy) / maxhealth * barsize;
+                        var start = pos + (new Vector2(10f, 19f));
+                        var end = pos + (new Vector2(10f + percent, 19f));
+
+                        DraWing.drawline("drawEdmg" + enemy.ChampionName, 0.1, start[0], start[1], end[0], end[1], 4.0f, drawEdmg.Color);
+                    }
+                }
+            }
         }
 
         static void draw_soulmate_link() {
@@ -508,7 +525,7 @@ namespace Kalima {
         #region HARASS
         static void harass() {
             if (!spellsreadyEQ) { return; }
-            if (!harassActive && Orbwalker.ActiveMode == Orbwalking.OrbwalkingMode.Mixed) { return; }
+            if (!(harassActive || Orbwalker.ActiveMode == Orbwalking.OrbwalkingMode.Mixed)) { return; }
 
             var dontprocessQ = true;
             if (laneclearSaveManaForE && !spellsEQmana) { dontprocessQ = false; }
@@ -538,7 +555,7 @@ namespace Kalima {
                 }
             }
             if (harassE && ECanCast) {
-                var enemies = HeroManager.Enemies.Where(x => E.CanCast(x));
+                var enemies = HeroManager.Enemies.Where(x => x.HasBuff("kalistaexpungemarker") && E.CanCast(x));
                 if (enemies == null) { return; }
                 //out of range E
                 foreach (var enemy in enemies) {
@@ -546,10 +563,52 @@ namespace Kalima {
                     if (harassEThroughMinions) {
                         var minions = MinionManager.GetMinions(Player.ServerPosition, R.Range, MinionTypes.All, MinionTeam.NotAlly).FindAll(x => E.IsKillable(x));
                         if (minions != null && minions.Count() >= harassEThroughMinionsMinMinions) {
-                        
+                            ECast();                        
                         }
                     }
 
+                }
+            }
+        }
+        #endregion
+
+        #region JUNGLE CLEAR
+
+        static void Jungleclear() {
+            if (!playerisready || !spellsreadyEQ || !jungleActive) { return; }
+            var minions = MinionManager.GetMinions(Q.Range, MinionTypes.All, MinionTeam.All, MinionOrderTypes.MaxHealth);
+            var biggies = minions.Find(x => x.CharData.BaseSkinName.ToLower().Contains("dragon") || x.CharData.BaseSkinName.ToLower().Contains("baron"));
+            var inside = minions.Find(x => x.Team == GameObjectTeam.Neutral && !x.CharData.BaseSkinName.ToLower().Contains("dragon") && !x.CharData.BaseSkinName.ToLower().Contains("baron"));
+            
+            if (inside != null) {
+                //Q section..
+                if (jungleclearQ && Manapercent > jungleclearQmana && DistanceFromMe(inside.Position) < jungleclearQMaxdistance && Q.CanCast(inside)) {
+                    if (jungleclearSaveManaForE) {
+                        if (spellsEQmana) { Q.Cast(inside); }
+                    } else { Q.Cast(inside); }
+                }
+                //E section
+                if (jungleclearE && Manapercent > jungleclearEmana && E.CanCast(inside) && inside.Health < GetEDamage(inside)) {
+                    ECast();
+                }            
+            }
+
+            if (biggies != null && jungleclearPopdragbaron) {
+                var dmgE = GetEDamage(biggies);
+                if (Player.HasBuff("barontarget")) { dmgE = dmgE * 0.5f; }
+                var bighealth = (biggies.Health + (biggies.HPRegenRate / 2));
+                var dmgQ = Q.GetDamage(biggies);
+                var combo = Player.GetAutoAttackDamage(biggies)+dmgQ;
+                if (ECanCast) {                    
+                    if (dmgE > bighealth) { ECast(); }
+                }
+                if (Manapercent > jungleclearQmana && jungleclearQdragBaron) {
+                    if (jungleclearSaveManaForE) {
+                        if (spellsEQmana) { Q.Cast(biggies); }
+                    } else { Q.Cast(biggies); }
+                }
+                if (DistanceFromMe(biggies) > jungleclearQMaxdistance) {
+                    if (spellsEQmana && combo > biggies.Health && spellsreadyEQ) { Q.Cast(biggies); } else if (Q.IsReady() && dmgQ > biggies.Health) { Q.Cast(biggies); }
                 }
             }
         }
@@ -615,6 +674,7 @@ namespace Kalima {
         }
         #endregion
 
+        
         #region MISC FUNCTIONS
         static HitChance gethitchanceQ { get { return hitchanceQ(); } }
         static HitChance hitchanceQ() {
@@ -805,7 +865,7 @@ namespace Kalima {
         }
 
         static void AutoW() {
-            if (W.IsReady()) { return; }
+            if (!W.IsReady()) { return; }
             var closestenemy = HeroManager.Enemies.Find(x => DistanceFromMe(x) < autowenemyisntnear);
             if (closestenemy != null) { return; }
             if (Player.IsDashing() || Player.IsWindingUp || Player.InFountain() || Player.IsRecalling()) { return; }
